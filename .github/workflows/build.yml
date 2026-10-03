@@ -20,8 +20,8 @@ jobs:
           sed -i 's/android:label="[^"]*"/android:label="مكتبة الأنوار المحمدية"/' android/app/src/main/AndroidManifest.xml
           flutter pub get
           dart run flutter_launcher_icons
-          flutter build apk --release
+          flutter build apk --release --split-per-abi --target-platform android-arm64
       - uses: actions/upload-artifact@v4
         with:
-          name: anwar-apk
-          path: anwar_library/build/app/outputs/flutter-apk/app-release.apk
+          name: anwar-apk-arm64
+          path: anwar_library/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
