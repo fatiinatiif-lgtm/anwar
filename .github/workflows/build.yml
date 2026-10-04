@@ -6,6 +6,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cat anwar_part_* > all.zip && unzip -q all.zip
+      - name: Patch viewer
+        run: |
+          sed -i 's/PdfControllerPinch/PdfController/g; s/PdfViewPinch(controller: c)/PdfView(controller: c, pageSnapping: true)/' anwar_library/lib/main.dart
+          grep -n "PdfView\|PdfController" anwar_library/lib/main.dart
       - name: Shrink PDFs
         run: |
           sudo apt-get install -y ghostscript > /dev/null
