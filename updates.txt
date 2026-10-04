@@ -1,0 +1,293 @@
+--- a/lib/main.dart
++++ b/lib/main.dart
+@@ -5,3 +5,5 @@
+ import 'package:pdfx/pdfx.dart';
++import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+ import 'package:shared_preferences/shared_preferences.dart';
++import 'package:url_launcher/url_launcher.dart';
+ 
+@@ -10,2 +12,29 @@
+ const levelNames = ['الأول','الثاني','الثالث','الرابع','الخامس'];
++const hijriMonths = ['محرم','صفر','ربيع الأول','ربيع الآخر','جمادى الأولى','جمادى الآخرة','رجب','شعبان','رمضان','شوال','ذو القعدة','ذو الحجة'];
++
++final themeMode = ValueNotifier<ThemeMode>(ThemeMode.light);
++bool isDark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
++Color accent(BuildContext c) => isDark(c) ? gold : green;
++void toggleDark() {
++  final d = themeMode.value != ThemeMode.dark;
++  themeMode.value = d ? ThemeMode.dark : ThemeMode.light;
++  Repo.prefs.setBool('dark', d);
++}
++
++int _jdn(int y, int m, int d) {
++  final a = (14 - m) ~/ 12, yy = y + 4800 - a, mm = m + 12 * a - 3;
++  return d + (153 * mm + 2) ~/ 5 + 365 * yy + yy ~/ 4 - yy ~/ 100 + yy ~/ 400 - 32045;
++}
++
++int _i2jd(int y, int m, int d) => d + (59 * (m - 1) + 1) ~/ 2 + (y - 1) * 354 + (3 + 11 * y) ~/ 30 + 1948440 - 1;
++
++String hijriText(DateTime t) {
++  final jd = _jdn(t.year, t.month, t.day);
++  final hy = (30 * (jd - 1948440) + 10646) ~/ 10631;
++  final x = jd - (29 + _i2jd(hy, 1, 1));
++  var hm = (2 * x + 58) ~/ 59 + 1;
++  if (hm > 12) hm = 12;
++  final hd = jd - _i2jd(hy, hm, 1) + 1;
++  return '$hd ${hijriMonths[hm - 1]} $hy هـ';
++}
+ 
+@@ -60,2 +89,3 @@
+     prefs = await SharedPreferences.getInstance();
++    themeMode.value = (prefs.getBool('dark') ?? false) ? ThemeMode.dark : ThemeMode.light;
+     for (final b in books) {
+@@ -113,19 +143,31 @@
+   @override
+-  Widget build(BuildContext context) => MaterialApp(
+-        debugShowCheckedModeBanner: false,
+-        title: 'مكتبة الأنوار المحمدية',
+-        locale: const Locale('ar'),
+-        supportedLocales: const [Locale('ar')],
+-        localizationsDelegates: const [
+-          GlobalMaterialLocalizations.delegate,
+-          GlobalWidgetsLocalizations.delegate,
+-          GlobalCupertinoLocalizations.delegate,
+-        ],
+-        theme: ThemeData(
+-          colorScheme: ColorScheme.fromSeed(seedColor: green, primary: green, secondary: gold),
+-          scaffoldBackgroundColor: cream,
+-          appBarTheme: const AppBarTheme(backgroundColor: green, foregroundColor: Colors.white),
+-          useMaterial3: true,
++  Widget build(BuildContext context) => ValueListenableBuilder<ThemeMode>(
++        valueListenable: themeMode,
++        builder: (_, mode, __) => MaterialApp(
++          debugShowCheckedModeBanner: false,
++          title: 'مكتبة الأنوار المحمدية',
++          locale: const Locale('ar'),
++          supportedLocales: const [Locale('ar')],
++          localizationsDelegates: const [
++            GlobalMaterialLocalizations.delegate,
++            GlobalWidgetsLocalizations.delegate,
++            GlobalCupertinoLocalizations.delegate,
++          ],
++          themeMode: mode,
++          theme: ThemeData(
++            colorScheme: ColorScheme.fromSeed(seedColor: green, primary: green, secondary: gold),
++            scaffoldBackgroundColor: cream,
++            appBarTheme: const AppBarTheme(backgroundColor: green, foregroundColor: Colors.white),
++            useMaterial3: true,
++          ),
++          darkTheme: ThemeData(
++            brightness: Brightness.dark,
++            colorScheme: ColorScheme.fromSeed(seedColor: green, brightness: Brightness.dark),
++            scaffoldBackgroundColor: const Color(0xFF121A16),
++            cardColor: const Color(0xFF1E2A24),
++            appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF0B3D2A), foregroundColor: Colors.white),
++            useMaterial3: true,
++          ),
++          home: const Shell(),
+         ),
+-        home: const Shell(),
+       );
+@@ -149,3 +191,3 @@
+           type: BottomNavigationBarType.fixed,
+-          selectedItemColor: green,
++          selectedItemColor: accent(context),
+           unselectedItemColor: Colors.grey,
+@@ -179,13 +221,22 @@
+       Padding(
+-        padding: const EdgeInsets.all(12),
+-        child: TextField(
+-          onChanged: (v) => setState(() => q = v),
+-          decoration: InputDecoration(
+-            hintText: 'ابحث في عناوين كل الكتب...',
+-            prefixIcon: const Icon(Icons.search),
+-            filled: true,
+-            fillColor: Colors.white,
+-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
++        padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
++        child: Row(children: [
++          Expanded(
++            child: TextField(
++              onChanged: (v) => setState(() => q = v),
++              decoration: InputDecoration(
++                hintText: 'ابحث في عناوين كل الكتب...',
++                prefixIcon: const Icon(Icons.search),
++                filled: true,
++                fillColor: Theme.of(context).cardColor,
++                border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
++              ),
++            ),
+           ),
+-        ),
++          IconButton(
++            tooltip: 'الوضع الليلي',
++            icon: Icon(isDark(context) ? Icons.light_mode : Icons.dark_mode),
++            onPressed: toggleDark,
++          ),
++        ]),
+       ),
+@@ -197,2 +248,4 @@
+                 const AuthorPhoto(),
++                const SizedBox(height: 12),
++                Center(child: Text('شاعر رسول الله ﷺ', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: accent(context)))),
+                 const SizedBox(height: 14),
+@@ -253,4 +306,6 @@
+       Text('${two(h)}:${two(now.minute)}:${two(now.second)} ${now.hour < 12 ? 'ص' : 'م'}',
+-          style: const TextStyle(fontSize: 38, fontWeight: FontWeight.bold, color: green)),
+-      Text('${now.day} ${months[now.month - 1]} ${now.year}', style: const TextStyle(fontSize: 16, color: Colors.black54)),
++          style: TextStyle(fontSize: 38, fontWeight: FontWeight.bold, color: accent(context))),
++      Text('${now.day} ${months[now.month - 1]} ${now.year}', style: TextStyle(fontSize: 16, color: Theme.of(context).hintColor)),
++      const SizedBox(height: 4),
++      Text(hijriText(now), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: accent(context))),
+     ]);
+@@ -369,3 +424,3 @@
+ class _PdfScreenState extends State<PdfScreen> {
+-  late final PdfControllerPinch c;
++  late final PdfController c;
+   @override
+@@ -373,3 +428,4 @@
+     super.initState();
+-    c = PdfControllerPinch(document: PdfDocument.openAsset(widget.book.pdf), initialPage: widget.page);
++    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
++    c = PdfController(document: PdfDocument.openAsset(widget.book.pdf), initialPage: widget.page);
+   }
+@@ -378,2 +434,3 @@
+   void dispose() {
++    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+     c.dispose();
+@@ -383,17 +440,54 @@
+   @override
+-  Widget build(BuildContext context) => Scaffold(
+-        appBar: AppBar(
+-          title: Text(widget.book.title, style: const TextStyle(fontSize: 15)),
+-          actions: [
+-            PdfPageNumber(
++  Widget build(BuildContext context) {
++    final dark = isDark(context);
++    return Scaffold(
++      backgroundColor: dark ? Colors.black : Colors.white,
++      body: Stack(children: [
++        ColorFiltered(
++          colorFilter: dark
++              ? const ColorFilter.matrix(<double>[-1, 0, 0, 0, 255, 0, -1, 0, 0, 255, 0, 0, -1, 0, 255, 0, 0, 0, 1, 0])
++              : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
++          child: PdfView(controller: c, pageSnapping: true),
++        ),
++        Positioned(
++          top: 6,
++          right: 6,
++          child: SafeArea(
++            child: Row(children: [
++              CircleAvatar(
++                backgroundColor: Colors.black45,
++                child: IconButton(
++                  icon: const Icon(Icons.arrow_back, color: Colors.white),
++                  onPressed: () => Navigator.pop(context),
++                ),
++              ),
++              const SizedBox(width: 8),
++              CircleAvatar(
++                backgroundColor: Colors.black45,
++                child: IconButton(
++                  icon: Icon(dark ? Icons.light_mode : Icons.dark_mode, color: Colors.white),
++                  onPressed: toggleDark,
++                ),
++              ),
++            ]),
++          ),
++        ),
++        Positioned(
++          bottom: 6,
++          left: 0,
++          right: 0,
++          child: Center(
++            child: PdfPageNumber(
+               controller: c,
+-              builder: (_, __, page, count) => Padding(
+-                padding: const EdgeInsets.symmetric(horizontal: 12),
+-                child: Center(child: Text('$page / ${count ?? 0}')),
++              builder: (_, __, page, count) => Container(
++                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
++                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(14)),
++                child: Text('$page / ${count ?? 0}', style: const TextStyle(color: Colors.white)),
+               ),
+             ),
+-          ],
++          ),
+         ),
+-        body: PdfViewPinch(controller: c),
+-      );
++      ]),
++    );
++  }
+ }
+@@ -452,2 +546,3 @@
+         const Expanded(child: TextView('assets/texts/about_us.txt')),
++        const ContactCard(),
+       ]);
+@@ -455,2 +550,43 @@
+ 
++class ContactCard extends StatelessWidget {
++  const ContactCard({super.key});
++  Future<void> openWhatsApp() =>
++      launchUrl(Uri.parse('https://wa.me/201146050106'), mode: LaunchMode.externalApplication);
++
++  @override
++  Widget build(BuildContext context) => Container(
++        margin: const EdgeInsets.fromLTRB(16, 6, 16, 14),
++        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
++        decoration: BoxDecoration(
++          borderRadius: BorderRadius.circular(20),
++          gradient: const LinearGradient(colors: [Color(0xFF0B5D3B), Color(0xFF12805A)]),
++          border: Border.all(color: gold, width: 1.5),
++          boxShadow: [BoxShadow(color: gold.withOpacity(.35), blurRadius: 14)],
++        ),
++        child: Row(children: [
++          const Icon(Icons.phone_in_talk, color: gold, size: 30),
++          const SizedBox(width: 12),
++          const Expanded(
++            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
++              Text('للتواصل', style: TextStyle(color: Colors.white70, fontSize: 13)),
++              Directionality(
++                textDirection: TextDirection.ltr,
++                child: Text('01146050106',
++                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
++              ),
++            ]),
++          ),
++          InkWell(
++            onTap: openWhatsApp,
++            customBorder: const CircleBorder(),
++            child: Container(
++              padding: const EdgeInsets.all(11),
++              decoration: const BoxDecoration(color: Color(0xFF25D366), shape: BoxShape.circle),
++              child: const FaIcon(FontAwesomeIcons.whatsapp, color: Colors.white, size: 30),
++            ),
++          ),
++        ]),
++      );
++}
++
+ // ---------- منهج الصلاة ----------
+@@ -550,2 +686,11 @@
+     Repo.prefs.setStringList(key, done.map((e) => '$e').toList());
++    if (v) {
++      ScaffoldMessenger.of(context)
++        ..hideCurrentSnackBar()
++        ..showSnackBar(const SnackBar(
++          content: Text('زد يا حبيب رسول الله', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, color: Colors.white)),
++          backgroundColor: green,
++          duration: Duration(seconds: 2),
++        ));
++    }
+   }
+@@ -561,3 +706,3 @@
+           padding: const EdgeInsets.all(10),
+-          child: Text('أنجزت ${done.length} من $days يوم  •  ${done.length * goal} صلاة', style: const TextStyle(fontSize: 16, color: green)),
++          child: Text('أنجزت ${done.length} من $days يوم  •  ${done.length * goal} صلاة', style: TextStyle(fontSize: 16, color: accent(context))),
+         ),
+@@ -578,3 +723,3 @@
+               return Container(
+-                color: d == widget.hl ? gold.withOpacity(.25) : (k.isEven ? Colors.white : cream),
++                color: d == widget.hl ? gold.withOpacity(.25) : (k.isEven ? Theme.of(context).cardColor : Theme.of(context).scaffoldBackgroundColor),
+                 padding: const EdgeInsets.symmetric(horizontal: 12),
