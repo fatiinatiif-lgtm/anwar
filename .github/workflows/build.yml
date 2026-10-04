@@ -76,103 +76,98 @@ jobs:
           بِطيبةَ روضٌ للنبيِّ مُحببُ|165
           تَحَرَّ الصِدقَ في قولٍ وفعلٍ|167
           EOF
-      - name: Add poet title
-        run: |
-          python3 - <<'PY'
-          p = 'anwar_library/lib/main.dart'
-          s = open(p, encoding='utf-8').read()
-          old = 'const AuthorPhoto(),'
-          assert s.count(old) == 1
-          add = "\n                const SizedBox(height: 12),\n                const Center(child: Text('شاعر رسول الله ﷺ', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: green))),"
-          open(p, 'w', encoding='utf-8').write(s.replace(old, old + add))
-          PY
-      - name: Full page viewer
-        run: |
-          python3 - <<'PY'
-          p = 'anwar_library/lib/main.dart'
-          s = open(p, encoding='utf-8').read()
-          a = s.index('class PdfScreen extends StatefulWidget')
-          b = s.index('// ---------- المفضلة')
-          new = r"""
-          class PdfScreen extends StatefulWidget {
-            final Book book;
-            final int page;
-            const PdfScreen(this.book, this.page, {super.key});
-            @override
-            State<PdfScreen> createState() => _PdfScreenState();
-          }
-
-          class _PdfScreenState extends State<PdfScreen> {
-            late final PdfController c;
-            @override
-            void initState() {
-              super.initState();
-              SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-              c = PdfController(document: PdfDocument.openAsset(widget.book.pdf), initialPage: widget.page);
-            }
-
-            @override
-            void dispose() {
-              SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-              c.dispose();
-              super.dispose();
-            }
-
-            @override
-            Widget build(BuildContext context) => Scaffold(
-                  backgroundColor: Colors.white,
-                  body: Stack(children: [
-                    PdfView(controller: c, pageSnapping: true),
-                    Positioned(
-                      top: 6,
-                      right: 6,
-                      child: SafeArea(
-                        child: CircleAvatar(
-                          backgroundColor: Colors.black45,
-                          child: IconButton(
-                            icon: const Icon(Icons.arrow_back, color: Colors.white),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 6,
-                      left: 0,
-                      right: 0,
-                      child: Center(
-                        child: PdfPageNumber(
-                          controller: c,
-                          builder: (_, __, page, count) => Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(14)),
-                            child: Text('$page / ${count ?? 0}', style: const TextStyle(color: Colors.white)),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ]),
-                );
-          }
-          """
-          open(p, 'w', encoding='utf-8').write(s[:a] + new.lstrip() + '\n' + s[b:])
-          PY
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-      - name: Build
+      - name: Apply updates
         working-directory: anwar_library
         run: |
-          flutter create --org com.anwar --project-name anwar_library --platforms android .
-          sed -i 's/android:label="[^"]*"/android:label="مكتبة الأنوار المحمدية"/' android/app/src/main/AndroidManifest.xml
-          flutter pub get
-          dart run flutter_launcher_icons
-          flutter build apk --release --split-per-abi --target-platform android-arm64
-      - uses: actions/upload-artifact@v4
-        with:
-          name: anwar-apk
-          path: anwar_library/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          patch -l lib/main.dart <<'PATCH'
+          --- a/lib/main.dart
+          +++ b/lib/main.dart
+          @@ -5,3 +5,5 @@
+           import 'package:pdfx/pdfx.dart';
+          +import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+           import 'package:shared_preferences/shared_preferences.dart';
+          +import 'package:url_launcher/url_launcher.dart';
+           
+          @@ -10,2 +12,29 @@
+           const levelNames = ['الأول','الثاني','الثالث','الرابع','الخامس'];
+          +const hijriMonths = ['محرم','صفر','ربيع الأول','ربيع الآخر','جمادى الأولى','جمادى الآخرة','رجب','شعبان','رمضان','شوال','ذو القعدة','ذو الحجة'];
+          +
+          +final themeMode = ValueNotifier<ThemeMode>(ThemeMode.light);
+          +bool isDark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
+          +Color accent(BuildContext c) => isDark(c) ? gold : green;
+          +void toggleDark() {
+          +  final d = themeMode.value != ThemeMode.dark;
+          +  themeMode.value = d ? ThemeMode.dark : ThemeMode.light;
+          +  Repo.prefs.setBool('dark', d);
+          +}
+          +
+          +int _jdn(int y, int m, int d) {
+          +  final a = (14 - m) ~/ 12, yy = y + 4800 - a, mm = m + 12 * a - 3;
+          +  return d + (153 * mm + 2) ~/ 5 + 365 * yy + yy ~/ 4 - yy ~/ 100 + yy ~/ 400 - 32045;
+          +}
+          +
+          +int _i2jd(int y, int m, int d) => d + (59 * (m - 1) + 1) ~/ 2 + (y - 1) * 354 + (3 + 11 * y) ~/ 30 + 1948440 - 1;
+          +
+          +String hijriText(DateTime t) {
+          +  final jd = _jdn(t.year, t.month, t.day);
+          +  final hy = (30 * (jd - 1948440) + 10646) ~/ 10631;
+          +  final x = jd - (29 + _i2jd(hy, 1, 1));
+          +  var hm = (2 * x + 58) ~/ 59 + 1;
+          +  if (hm > 12) hm = 12;
+          +  final hd = jd - _i2jd(hy, hm, 1) + 1;
+          +  return '$hd ${hijriMonths[hm - 1]} $hy هـ';
+          +}
+           
+          @@ -60,2 +89,3 @@
+               prefs = await SharedPreferences.getInstance();
+          +    themeMode.value = (prefs.getBool('dark') ?? false) ? ThemeMode.dark : ThemeMode.light;
+               for (final b in books) {
+          @@ -113,19 +143,31 @@
+             @override
+          -  Widget build(BuildContext context) => MaterialApp(
+          -        debugShowCheckedModeBanner: false,
+          -        title: 'مكتبة الأنوار المحمدية',
+          -        locale: const Locale('ar'),
+          -        supportedLocales: const [Locale('ar')],
+          -        localizationsDelegates: const [
+          -          GlobalMaterialLocalizations.delegate,
+          -          GlobalWidgetsLocalizations.delegate,
+          -          GlobalCupertinoLocalizations.delegate,
+          -        ],
+          -        theme: ThemeData(
+          -          colorScheme: ColorScheme.fromSeed(seedColor: green, primary: green, secondary: gold),
+          -          scaffoldBackgroundColor: cream,
+          -          appBarTheme: const AppBarTheme(backgroundColor: green, foregroundColor: Colors.white),
+          -          useMaterial3: true,
+          +  Widget build(BuildContext context) => ValueListenableBuilder<ThemeMode>(
+          +        valueListenable: themeMode,
+          +        builder: (_, mode, __) => MaterialApp(
+          +          debugShowCheckedModeBanner: false,
+          +          title: 'مكتبة الأنوار المحمدية',
+          +          locale: const Locale('ar'),
+          +          supportedLocales: const [Locale('ar')],
+          +          localizationsDelegates: const [
+          +            GlobalMaterialLocalizations.delegate,
+          +            GlobalWidgetsLocalizations.delegate,
+          +            GlobalCupertinoLocalizations.delegate,
+          +          ],
+          +          themeMode: mode,
+          +          theme: ThemeData(
+          +            colorScheme: ColorScheme.fromSeed(seedColor: green, primary: green, secondary: gold),
+          +            scaffoldBackgroundColor: cream,
+          +            appBarTheme: const AppBarTheme(backgroundColor: green, foregroundColor: Colors.white),
+          +            useMaterial3: true,
+          +          ),
+          +          darkTheme: ThemeData(
+          +            brightness: Brightness.dark,
+          +            colorScheme: ColorScheme.fromSeed(seedColor: green, brightness: Brightness.dark),
+          +            scaffoldBackgroundColor: const Color(0xFF121A16),
+          +            cardColor: const Color(0xFF1E2A24),
+          +            appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF0B3D2A), foregroundColor: Colors.white),
+          +            useMaterial3: true,
+          +          ),
+          +          home: const Shell(),
+                   ),
+          -        home: const Shell(),
+                 );
+          @@ -149,3
