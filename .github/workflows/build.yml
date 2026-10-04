@@ -76,19 +76,87 @@ jobs:
           بِطيبةَ روضٌ للنبيِّ مُحببُ|165
           تَحَرَّ الصِدقَ في قولٍ وفعلٍ|167
           EOF
-      - name: Patch viewer
+      - name: Add poet title
         run: |
-          sed -i 's/PdfControllerPinch/PdfController/g; s/PdfViewPinch(controller: c)/PdfView(controller: c, pageSnapping: true)/' anwar_library/lib/main.dart
-          grep -n "PdfView\|PdfController" anwar_library/lib/main.dart
-      - name: Shrink PDFs
+          python3 - <<'PY'
+          p = 'anwar_library/lib/main.dart'
+          s = open(p, encoding='utf-8').read()
+          old = 'const AuthorPhoto(),'
+          assert s.count(old) == 1
+          add = "\n                const SizedBox(height: 12),\n                const Center(child: Text('شاعر رسول الله ﷺ', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: green))),"
+          open(p, 'w', encoding='utf-8').write(s.replace(old, old + add))
+          PY
+      - name: Full page viewer
         run: |
-          sudo apt-get install -y ghostscript > /dev/null
-          cd anwar_library/assets/books
-          ls -la
-          for f in $(find . -name '*.pdf' -size +3M); do
-            gs -q -dNOPAUSE -dBATCH -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/ebook -dDownsampleColorImages=true -dColorImageResolution=120 -dDownsampleGrayImages=true -dGrayImageResolution=120 -dDownsampleMonoImages=true -dMonoImageResolution=200 -sOutputFile=/tmp/x.pdf "$f" && [ -s /tmp/x.pdf ] && [ $(stat -c%s /tmp/x.pdf) -lt $(stat -c%s "$f") ] && mv /tmp/x.pdf "$f" || true
-          done
-          ls -la
+          python3 - <<'PY'
+          p = 'anwar_library/lib/main.dart'
+          s = open(p, encoding='utf-8').read()
+          a = s.index('class PdfScreen extends StatefulWidget')
+          b = s.index('// ---------- المفضلة')
+          new = r"""
+          class PdfScreen extends StatefulWidget {
+            final Book book;
+            final int page;
+            const PdfScreen(this.book, this.page, {super.key});
+            @override
+            State<PdfScreen> createState() => _PdfScreenState();
+          }
+
+          class _PdfScreenState extends State<PdfScreen> {
+            late final PdfController c;
+            @override
+            void initState() {
+              super.initState();
+              SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+              c = PdfController(document: PdfDocument.openAsset(widget.book.pdf), initialPage: widget.page);
+            }
+
+            @override
+            void dispose() {
+              SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+              c.dispose();
+              super.dispose();
+            }
+
+            @override
+            Widget build(BuildContext context) => Scaffold(
+                  backgroundColor: Colors.white,
+                  body: Stack(children: [
+                    PdfView(controller: c, pageSnapping: true),
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: SafeArea(
+                        child: CircleAvatar(
+                          backgroundColor: Colors.black45,
+                          child: IconButton(
+                            icon: const Icon(Icons.arrow_back, color: Colors.white),
+                            onPressed: () => Navigator.pop(context),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 6,
+                      left: 0,
+                      right: 0,
+                      child: Center(
+                        child: PdfPageNumber(
+                          controller: c,
+                          builder: (_, __, page, count) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(14)),
+                            child: Text('$page / ${count ?? 0}', style: const TextStyle(color: Colors.white)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ]),
+                );
+          }
+          """
+          open(p, 'w', encoding='utf-8').write(s[:a] + new.lstrip() + '\n' + s[b:])
+          PY
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
