@@ -8,9 +8,9 @@ jobs:
       - run: cat anwar_part_* > all.zip && unzip -q all.zip
       - name: Apply updates
         run: |
-          cp hekma.txt anwar_library/assets/index/hekma.txt
+          cp hekma.txt elhama.txt sera.txt anwar_library/assets/index/
           cd anwar_library
-          patch -l lib/main.dart < ../updates.txt
+          patch -l lib/main.dart < ../updates2.txt
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -22,7 +22,7 @@ jobs:
         working-directory: anwar_library
         run: |
           flutter create --org com.anwar --project-name anwar_library --platforms android .
-          flutter pub add url_launcher font_awesome_flutter
+          flutter pub add url_launcher font_awesome_flutter scrollable_positioned_list
           sed -i 's/android:label="[^"]*"/android:label="مكتبة الأنوار المحمدية"/' android/app/src/main/AndroidManifest.xml
           flutter pub get
           dart run flutter_launcher_icons
