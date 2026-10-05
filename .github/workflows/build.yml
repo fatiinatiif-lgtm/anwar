@@ -9,6 +9,7 @@ jobs:
       - name: Apply updates
         run: |
           cp hekma.txt elhama.txt sera.txt anwar_library/assets/index/
+          cp about_us.txt anwar_library/assets/texts/
           cd anwar_library
           patch -l lib/main.dart < ../updates2.txt
       - uses: actions/setup-java@v4
