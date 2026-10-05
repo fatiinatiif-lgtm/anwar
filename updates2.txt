@@ -1,0 +1,778 @@
+--- a/lib/main.dart
++++ b/lib/main.dart
+@@ -1,2 +1,3 @@
+ import 'dart:async';
++import 'dart:typed_data';
+ import 'package:flutter/material.dart';
+@@ -5,3 +6,6 @@
+ import 'package:pdfx/pdfx.dart';
++import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
++import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+ import 'package:shared_preferences/shared_preferences.dart';
++import 'package:url_launcher/url_launcher.dart';
+ 
+@@ -10,2 +14,35 @@
+ const levelNames = ['الأول','الثاني','الثالث','الرابع','الخامس'];
++const hijriMonths = ['محرم','صفر','ربيع الأول','ربيع الآخر','جمادى الأولى','جمادى الآخرة','رجب','شعبان','رمضان','شوال','ذو القعدة','ذو الحجة'];
++
++final themeMode = ValueNotifier<ThemeMode>(ThemeMode.light);
++bool isDark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
++Color prim(BuildContext c) => Theme.of(c).colorScheme.primary;
++Color accent(BuildContext c) => isDark(c) ? gold : prim(c);
++const paletteNames = ['أخضر','أزرق','بنفسجي','عنابي','بني','رمادي','فيروزي','برتقالي'];
++const paletteColors = [Color(0xFF0B5D3B), Color(0xFF1565C0), Color(0xFF6A1B9A), Color(0xFF8E1B3A), Color(0xFF6D4C41), Color(0xFF37474F), Color(0xFF00796B), Color(0xFFBF5B04)];
++final colorIdx = ValueNotifier<int>(0);
++final hijriAdj = ValueNotifier<int>(0);
++final bookmarkTick = ValueNotifier<int>(0);
++void toggleDark() {
++  final d = themeMode.value != ThemeMode.dark;
++  themeMode.value = d ? ThemeMode.dark : ThemeMode.light;
++  Repo.prefs.setBool('dark', d);
++}
++
++int _jdn(int y, int m, int d) {
++  final a = (14 - m) ~/ 12, yy = y + 4800 - a, mm = m + 12 * a - 3;
++  return d + (153 * mm + 2) ~/ 5 + 365 * yy + yy ~/ 4 - yy ~/ 100 + yy ~/ 400 - 32045;
++}
++
++const _hs = [373, 402, 432, 461, 491, 521, 551, 580, 610, 639, 669, 698, 727, 757, 786, 816, 845, 875, 905, 934, 964, 994, 1023, 1053, 1082, 1111, 1141, 1170, 1200, 1229, 1259, 1288, 1318, 1348, 1377, 1407, 1436, 1466, 1495, 1525, 1554, 1584, 1613, 1643, 1672, 1702, 1731, 1761, 1791, 1820, 1850, 1879, 1909, 1938, 1968, 1997, 2027, 2056, 2085, 2115, 2145, 2174, 2204, 2234, 2263, 2293, 2322, 2352, 2381, 2411, 2440, 2469, 2499, 2528, 2558, 2587, 2617, 2647, 2677, 2706, 2736, 2765, 2794, 2824, 2853, 2883, 2912, 2942, 2971, 3001, 3031, 3061, 3090, 3120, 3149, 3179, 3208, 3237, 3267, 3296, 3326, 3355, 3385, 3415, 3445, 3474, 3504, 3533, 3563, 3592, 3621, 3651, 3680, 3709, 3739, 3769, 3799, 3828, 3858, 3888, 3917, 3947, 3976, 4005, 4035, 4064, 4093, 4123, 4153, 4182, 4212, 4242, 4271, 4301, 4330, 4360, 4389, 4419, 4448, 4478, 4507, 4537, 4566, 4596, 4625, 4655, 4685, 4714, 4744, 4773, 4803, 4832, 4862, 4891, 4921, 4950, 4980, 5009, 5039, 5068, 5098, 5128, 5157, 5187, 5216, 5246, 5275, 5305, 5334, 5363, 5393, 5422, 5452, 5482, 5511, 5541, 5571, 5600, 5630, 5659, 5689, 5718, 5747, 5777, 5806, 5836, 5865, 5895, 5925, 5955, 5984, 6014, 6043, 6073, 6102, 6131, 6161, 6190, 6220, 6249, 6279, 6309, 6339, 6368, 6398, 6427, 6457, 6486, 6515, 6545, 6574, 6603, 6633, 6663, 6692, 6722, 6752, 6782, 6811, 6841, 6870, 6899, 6929, 6958, 6987, 7017, 7047, 7076, 7106, 7136, 7166, 7195, 7225, 7254, 7283, 7313, 7342, 7371, 7401, 7430, 7460, 7490, 7520, 7549, 7579, 7608, 7638, 7667, 7697, 7726, 7755, 7785, 7814, 7844, 7874, 7903, 7933, 7963, 7992, 8022, 8051, 8081, 8110, 8140, 8169, 8198, 8228, 8257, 8287, 8317, 8346, 8376, 8405, 8435, 8465, 8494, 8524, 8553, 8583, 8612, 8641, 8671, 8700, 8730, 8760, 8789, 8819, 8849, 8878, 8908, 8937, 8967, 8996, 9025, 9055, 9084, 9114, 9143, 9173, 9203, 9232, 9262, 9292, 9321, 9351, 9380, 9409, 9439, 9468, 9497, 9527, 9557, 9586, 9616, 9646, 9676, 9705, 9735, 9764, 9793, 9823, 9852, 9881, 9911, 9941, 9970, 10000, 10030, 10060, 10089, 10119, 10148, 10177, 10207, 10236, 10265, 10295, 10324, 10354, 10384, 10414, 10443, 10473, 10502, 10532, 10561, 10591, 10620, 10649, 10679, 10708, 10738, 10768, 10797, 10827, 10857, 10886, 10916, 10945, 10975, 11004, 11033, 11063, 11092, 11122, 11151, 11181, 11211, 11240, 11270, 11300, 11329, 11359];
++
++String hijriText(DateTime t, [int adj = 0]) {
++  final j = _jdn(t.year, t.month, t.day) - 2458000 + adj;
++  if (j < _hs.first || j >= _hs.last) return '';
++  var i = 0;
++  while (i + 1 < _hs.length && _hs[i + 1] <= j) {
++    i++;
++  }
++  return '${j - _hs[i] + 1} ${hijriMonths[i % 12]} ${1440 + i ~/ 12} هـ';
++}
+ 
+@@ -60,2 +97,5 @@
+     prefs = await SharedPreferences.getInstance();
++    themeMode.value = (prefs.getBool('dark') ?? false) ? ThemeMode.dark : ThemeMode.light;
++    colorIdx.value = (prefs.getInt('color') ?? 0).clamp(0, paletteColors.length - 1);
++    hijriAdj.value = (prefs.getInt('hadj') ?? 0).clamp(-3, 3);
+     for (final b in books) {
+@@ -101,3 +141,4 @@
+   final max = pageCounts[b.id] ?? 1;
+-  Navigator.push(c, MaterialPageRoute(builder: (_) => PdfScreen(b, page.clamp(1, max))));
++  final p = page <= 0 ? (Repo.prefs.getInt('last_${b.id}') ?? 1) : page;
++  Navigator.push(c, MaterialPageRoute(builder: (_) => PdfScreen(b, p.clamp(1, max))));
+ }
+@@ -113,19 +154,34 @@
+   @override
+-  Widget build(BuildContext context) => MaterialApp(
+-        debugShowCheckedModeBanner: false,
+-        title: 'مكتبة الأنوار المحمدية',
+-        locale: const Locale('ar'),
+-        supportedLocales: const [Locale('ar')],
+-        localizationsDelegates: const [
+-          GlobalMaterialLocalizations.delegate,
+-          GlobalWidgetsLocalizations.delegate,
+-          GlobalCupertinoLocalizations.delegate,
+-        ],
+-        theme: ThemeData(
+-          colorScheme: ColorScheme.fromSeed(seedColor: green, primary: green, secondary: gold),
+-          scaffoldBackgroundColor: cream,
+-          appBarTheme: const AppBarTheme(backgroundColor: green, foregroundColor: Colors.white),
+-          useMaterial3: true,
+-        ),
+-        home: const Shell(),
++  Widget build(BuildContext context) => AnimatedBuilder(
++        animation: Listenable.merge([themeMode, colorIdx]),
++        builder: (_, __) {
++          final seed = paletteColors[colorIdx.value];
++          return MaterialApp(
++            debugShowCheckedModeBanner: false,
++            title: 'مكتبة الأنوار المحمدية',
++            locale: const Locale('ar'),
++            supportedLocales: const [Locale('ar')],
++            localizationsDelegates: const [
++              GlobalMaterialLocalizations.delegate,
++              GlobalWidgetsLocalizations.delegate,
++              GlobalCupertinoLocalizations.delegate,
++            ],
++            themeMode: themeMode.value,
++            theme: ThemeData(
++              colorScheme: ColorScheme.fromSeed(seedColor: seed, primary: seed, secondary: gold),
++              scaffoldBackgroundColor: cream,
++              appBarTheme: AppBarTheme(backgroundColor: seed, foregroundColor: Colors.white),
++              useMaterial3: true,
++            ),
++            darkTheme: ThemeData(
++              brightness: Brightness.dark,
++              colorScheme: ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.dark),
++              scaffoldBackgroundColor: const Color(0xFF121212),
++              cardColor: const Color(0xFF1E1E1E),
++              appBarTheme: AppBarTheme(backgroundColor: Color.lerp(seed, Colors.black, 0.5), foregroundColor: Colors.white),
++              useMaterial3: true,
++            ),
++            home: const Shell(),
++          );
++        },
+       );
+@@ -144,3 +200,3 @@
+         body: SafeArea(
+-          child: IndexedStack(index: i, children: const [HomeTab(), BooksTab(), PrayerTab(), FavsTab(), AboutTab()]),
++          child: IndexedStack(index: i, children: const [HomeTab(), BooksTab(), PrayerTab(), FavsTab(), AboutTab(), MoreTab()]),
+         ),
+@@ -149,6 +205,6 @@
+           type: BottomNavigationBarType.fixed,
+-          selectedItemColor: green,
++          selectedItemColor: accent(context),
+           unselectedItemColor: Colors.grey,
+-          selectedFontSize: 11,
+-          unselectedFontSize: 11,
++          selectedFontSize: 10,
++          unselectedFontSize: 10,
+           onTap: (v) => setState(() => i = v),
+@@ -160,2 +216,3 @@
+             BottomNavigationBarItem(icon: Icon(Icons.info), label: 'من نحن'),
++            BottomNavigationBarItem(icon: Icon(Icons.more_horiz), label: 'المزيد'),
+           ],
+@@ -179,13 +236,22 @@
+       Padding(
+-        padding: const EdgeInsets.all(12),
+-        child: TextField(
+-          onChanged: (v) => setState(() => q = v),
+-          decoration: InputDecoration(
+-            hintText: 'ابحث في عناوين كل الكتب...',
+-            prefixIcon: const Icon(Icons.search),
+-            filled: true,
+-            fillColor: Colors.white,
+-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
++        padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
++        child: Row(children: [
++          Expanded(
++            child: TextField(
++              onChanged: (v) => setState(() => q = v),
++              decoration: InputDecoration(
++                hintText: 'ابحث في عناوين كل الكتب...',
++                prefixIcon: const Icon(Icons.search),
++                filled: true,
++                fillColor: Theme.of(context).cardColor,
++                border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
++              ),
++            ),
+           ),
+-        ),
++          IconButton(
++            tooltip: 'الوضع الليلي',
++            icon: Icon(isDark(context) ? Icons.light_mode : Icons.dark_mode),
++            onPressed: toggleDark,
++          ),
++        ]),
+       ),
+@@ -197,2 +263,4 @@
+                 const AuthorPhoto(),
++                const SizedBox(height: 12),
++                Center(child: Text('شاعر رسول الله ﷺ', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: accent(context)))),
+                 const SizedBox(height: 14),
+@@ -253,4 +321,6 @@
+       Text('${two(h)}:${two(now.minute)}:${two(now.second)} ${now.hour < 12 ? 'ص' : 'م'}',
+-          style: const TextStyle(fontSize: 38, fontWeight: FontWeight.bold, color: green)),
+-      Text('${now.day} ${months[now.month - 1]} ${now.year}', style: const TextStyle(fontSize: 16, color: Colors.black54)),
++          style: TextStyle(fontSize: 38, fontWeight: FontWeight.bold, color: accent(context))),
++      Text('${now.day} ${months[now.month - 1]} ${now.year}', style: TextStyle(fontSize: 16, color: Theme.of(context).hintColor)),
++      const SizedBox(height: 4),
++      Text(hijriText(now, hijriAdj.value), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: accent(context))),
+     ]);
+@@ -270,3 +340,3 @@
+               shape: BoxShape.circle,
+-              gradient: const SweepGradient(colors: [gold, green, gold, Color(0xFFF1DC8A), gold]),
++              gradient: SweepGradient(colors: [gold, prim(context), gold, const Color(0xFFF1DC8A), gold]),
+               boxShadow: [BoxShadow(color: gold.withOpacity(.5), blurRadius: 22, spreadRadius: 2)],
+@@ -296,3 +366,3 @@
+                 if (Repo.index[b.id]!.isEmpty) {
+-                  openPdf(context, b, 1);
++                  openPdf(context, b, 0);
+                 } else {
+@@ -330,4 +400,13 @@
+           padding: const EdgeInsets.all(10),
+-          child: FilledButton.icon(
+-              onPressed: () => openPdf(context, b, 1), icon: const Icon(Icons.menu_book), label: const Text('فتح الكتاب من البداية')),
++          child: ValueListenableBuilder<int>(
++            valueListenable: bookmarkTick,
++            builder: (_, __, ___) {
++              final last = Repo.prefs.getInt('last_${b.id}');
++              return FilledButton.icon(
++                onPressed: () => openPdf(context, b, 0),
++                icon: const Icon(Icons.menu_book),
++                label: Text(last == null ? 'فتح الكتاب' : 'متابعة القراءة من صفحة $last'),
++              );
++            },
++          ),
+         ),
+@@ -369,3 +448,10 @@
+ class _PdfScreenState extends State<PdfScreen> {
+-  late final PdfControllerPinch c;
++  PdfDocument? doc;
++  int count = 0;
++  double aspect = 1.4;
++  String? error;
++  final positions = ItemPositionsListener.create();
++  final current = ValueNotifier<int>(1);
++  Timer? saveTimer;
++
+   @override
+@@ -373,3 +459,37 @@
+     super.initState();
+-    c = PdfControllerPinch(document: PdfDocument.openAsset(widget.book.pdf), initialPage: widget.page);
++    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
++    current.value = widget.page;
++    positions.itemPositions.addListener(onScroll);
++    openDoc();
++  }
++
++  Future<void> openDoc() async {
++    try {
++      final d = await PdfDocument.openAsset(widget.book.pdf);
++      final p = await d.getPage(1);
++      final a = p.height / p.width;
++      await p.close();
++      if (!mounted) return;
++      setState(() {
++        doc = d;
++        count = d.pagesCount;
++        aspect = a;
++      });
++    } catch (e) {
++      if (mounted) setState(() => error = '$e');
++    }
++  }
++
++  void onScroll() {
++    final ps = positions.itemPositions.value.where((p) => p.itemTrailingEdge > 0.35).toList();
++    if (ps.isEmpty) return;
++    final first = ps.map((p) => p.index).reduce((a, b) => a < b ? a : b) + 1;
++    if (first != current.value) {
++      current.value = first;
++      saveTimer?.cancel();
++      saveTimer = Timer(const Duration(milliseconds: 500), () {
++        Repo.prefs.setInt('last_${widget.book.id}', first);
++        bookmarkTick.value++;
++      });
++    }
+   }
+@@ -378,3 +498,10 @@
+   void dispose() {
+-    c.dispose();
++    positions.itemPositions.removeListener(onScroll);
++    saveTimer?.cancel();
++    if (doc != null) {
++      Repo.prefs.setInt('last_${widget.book.id}', current.value);
++      bookmarkTick.value++;
++    }
++    doc?.close();
++    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+     super.dispose();
+@@ -383,17 +510,167 @@
+   @override
+-  Widget build(BuildContext context) => Scaffold(
+-        appBar: AppBar(
+-          title: Text(widget.book.title, style: const TextStyle(fontSize: 15)),
+-          actions: [
+-            PdfPageNumber(
+-              controller: c,
+-              builder: (_, __, page, count) => Padding(
+-                padding: const EdgeInsets.symmetric(horizontal: 12),
+-                child: Center(child: Text('$page / ${count ?? 0}')),
++  Widget build(BuildContext context) {
++    final dark = isDark(context);
++    final mq = MediaQuery.of(context);
++    var px = mq.size.width * mq.devicePixelRatio * 1.5;
++    if (px > 2400) px = 2400;
++    return Scaffold(
++      backgroundColor: dark ? Colors.black : const Color(0xFFDADADA),
++      body: Stack(children: [
++        if (error != null)
++          Center(child: Text('تعذر فتح الكتاب\n$error', textAlign: TextAlign.center))
++        else if (doc == null)
++          const Center(child: CircularProgressIndicator())
++        else
++          ScrollablePositionedList.builder(
++            itemCount: count,
++            initialScrollIndex: widget.page - 1,
++            itemPositionsListener: positions,
++            minCacheExtent: 4000,
++            physics: const ClampingScrollPhysics(),
++            itemBuilder: (_, i) => PageTile(
++              key: ValueKey(i),
++              doc: doc!,
++              cacheKey: widget.book.id,
++              number: i + 1,
++              widthPx: px,
++              aspect: aspect,
++              dark: dark,
++            ),
++          ),
++        Positioned(
++          top: 6,
++          right: 6,
++          child: SafeArea(
++            child: Row(children: [
++              CircleAvatar(
++                backgroundColor: Colors.black54,
++                child: IconButton(
++                  icon: const Icon(Icons.arrow_back, color: Colors.white),
++                  onPressed: () => Navigator.pop(context),
++                ),
++              ),
++              const SizedBox(width: 8),
++              CircleAvatar(
++                backgroundColor: Colors.black54,
++                child: IconButton(
++                  icon: Icon(dark ? Icons.light_mode : Icons.dark_mode, color: Colors.white),
++                  onPressed: toggleDark,
++                ),
++              ),
++            ]),
++          ),
++        ),
++        Positioned(
++          bottom: 6,
++          left: 0,
++          right: 0,
++          child: Center(
++            child: ValueListenableBuilder<int>(
++              valueListenable: current,
++              builder: (_, p, __) => Container(
++                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
++                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(14)),
++                child: Text('$p / $count', style: const TextStyle(color: Colors.white)),
+               ),
+             ),
+-          ],
++          ),
+         ),
+-        body: PdfViewPinch(controller: c),
+-      );
++      ]),
++    );
++  }
++}
++
++final Map<String, Uint8List> _pageCache = {};
++final Map<String, double> _aspectCache = {};
++Future<void> _renderChain = Future.value();
++
++class PageTile extends StatefulWidget {
++  final PdfDocument doc;
++  final String cacheKey;
++  final int number;
++  final double widthPx, aspect;
++  final bool dark;
++  const PageTile({
++    super.key,
++    required this.doc,
++    required this.cacheKey,
++    required this.number,
++    required this.widthPx,
++    required this.aspect,
++    required this.dark,
++  });
++  @override
++  State<PageTile> createState() => _PageTileState();
++}
++
++class _PageTileState extends State<PageTile> {
++  Uint8List? bytes;
++  double? ratio;
++  bool gone = false;
++
++  @override
++  void initState() {
++    super.initState();
++    final k = '${widget.cacheKey}_${widget.number}';
++    bytes = _pageCache[k];
++    ratio = _aspectCache[k];
++    if (bytes == null) load(k);
++  }
++
++  void load(String k) {
++    _renderChain = _renderChain.then((_) async {
++      if (gone) return;
++      try {
++        final p = await widget.doc.getPage(widget.number);
++        final r = p.height / p.width;
++        final img = await p.render(
++          width: widget.widthPx,
++          height: widget.widthPx * r,
++          format: PdfPageImageFormat.jpeg,
++          backgroundColor: '#FFFFFF',
++          quality: 92,
++        );
++        await p.close();
++        if (img != null) {
++          _pageCache[k] = img.bytes;
++          _aspectCache[k] = r;
++          if (_pageCache.length > 30) _pageCache.remove(_pageCache.keys.first);
++          if (mounted) {
++            setState(() {
++              bytes = img.bytes;
++              ratio = r;
++            });
++          }
++        }
++      } catch (_) {}
++    });
++  }
++
++  @override
++  void dispose() {
++    gone = true;
++    super.dispose();
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    final w = MediaQuery.of(context).size.width;
++    return Padding(
++      padding: const EdgeInsets.only(bottom: 4),
++      child: SizedBox(
++        width: w,
++        height: w * (ratio ?? widget.aspect),
++        child: bytes == null
++            ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
++            : Image.memory(
++                bytes!,
++                fit: BoxFit.fill,
++                gaplessPlayback: true,
++                filterQuality: FilterQuality.medium,
++                color: widget.dark ? Colors.white : null,
++                colorBlendMode: widget.dark ? BlendMode.difference : null,
++              ),
++      ),
++    );
++  }
+ }
+@@ -449,5 +726,111 @@
+   Widget build(BuildContext context) => Column(children: [
+-        Container(width: double.infinity, color: green, padding: const EdgeInsets.all(14),
++        Container(width: double.infinity, color: prim(context), padding: const EdgeInsets.all(14),
+             child: const Text('من نحن', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 20))),
+         const Expanded(child: TextView('assets/texts/about_us.txt')),
++        const ContactCard(),
++      ]);
++}
++
++class MoreTab extends StatelessWidget {
++  const MoreTab({super.key});
++
++  void hijriSheet(BuildContext context) {
++    showModalBottomSheet(
++      context: context,
++      builder: (ctx) => StatefulBuilder(builder: (ctx, set) {
++        final adj = hijriAdj.value;
++        void change(int d) {
++          final a = (adj + d).clamp(-3, 3);
++          hijriAdj.value = a;
++          Repo.prefs.setInt('hadj', a);
++          set(() {});
++        }
++
++        return Padding(
++          padding: const EdgeInsets.all(20),
++          child: Column(mainAxisSize: MainAxisSize.min, children: [
++            const Text('تعديل التقويم الهجري', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
++            const SizedBox(height: 6),
++            Text('قد يختلف التاريخ الهجري من بلد لآخر، عدّل اليوم ليناسب بلدك',
++                textAlign: TextAlign.center, style: TextStyle(color: Theme.of(ctx).hintColor)),
++            const SizedBox(height: 14),
++            Text(hijriText(DateTime.now(), adj), style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: accent(ctx))),
++            const SizedBox(height: 10),
++            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
++              IconButton.filledTonal(onPressed: adj > -3 ? () => change(-1) : null, icon: const Icon(Icons.remove)),
++              Padding(
++                padding: const EdgeInsets.symmetric(horizontal: 18),
++                child: Text(adj == 0 ? 'بدون تعديل' : (adj > 0 ? '+$adj يوم' : '$adj يوم'), style: const TextStyle(fontSize: 16)),
++              ),
++              IconButton.filledTonal(onPressed: adj < 3 ? () => change(1) : null, icon: const Icon(Icons.add)),
++            ]),
++            const SizedBox(height: 10),
++          ]),
++        );
++      }),
++    );
++  }
++
++  void colorsSheet(BuildContext context) {
++    showModalBottomSheet(
++      context: context,
++      builder: (ctx) => StatefulBuilder(
++        builder: (ctx, set) => Padding(
++          padding: const EdgeInsets.all(20),
++          child: Column(mainAxisSize: MainAxisSize.min, children: [
++            const Text('اختر لون التطبيق', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
++            const SizedBox(height: 16),
++            Wrap(spacing: 16, runSpacing: 14, alignment: WrapAlignment.center, children: [
++              for (var i = 0; i < paletteColors.length; i++)
++                GestureDetector(
++                  onTap: () {
++                    colorIdx.value = i;
++                    Repo.prefs.setInt('color', i);
++                    set(() {});
++                  },
++                  child: Column(mainAxisSize: MainAxisSize.min, children: [
++                    CircleAvatar(
++                      radius: 26,
++                      backgroundColor: paletteColors[i],
++                      child: colorIdx.value == i ? const Icon(Icons.check, color: Colors.white) : null,
++                    ),
++                    const SizedBox(height: 4),
++                    Text(paletteNames[i], style: const TextStyle(fontSize: 12)),
++                  ]),
++                ),
++            ]),
++            const SizedBox(height: 10),
++          ]),
++        ),
++      ),
++    );
++  }
++
++  @override
++  Widget build(BuildContext context) => ListView(padding: const EdgeInsets.all(14), children: [
++        const SizedBox(height: 6),
++        Card(
++          child: ListTile(
++            leading: Icon(Icons.calendar_month, color: accent(context)),
++            title: const Text('تعديل التقويم الهجري'),
++            trailing: const Icon(Icons.chevron_left),
++            onTap: () => hijriSheet(context),
++          ),
++        ),
++        Card(
++          child: ListTile(
++            leading: Icon(Icons.palette, color: accent(context)),
++            title: const Text('الألوان'),
++            trailing: const Icon(Icons.chevron_left),
++            onTap: () => colorsSheet(context),
++          ),
++        ),
++        Card(
++          child: SwitchListTile(
++            secondary: Icon(Icons.dark_mode, color: accent(context)),
++            title: const Text('الوضع الليلي'),
++            value: isDark(context),
++            onChanged: (_) => toggleDark(),
++          ),
++        ),
+       ]);
+@@ -455,2 +838,48 @@
+ 
++class ContactCard extends StatelessWidget {
++  const ContactCard({super.key});
++  Future<void> openWhatsApp() async {
++    try {
++      final ok = await launchUrl(Uri.parse('whatsapp://send?phone=201146050106'), mode: LaunchMode.externalApplication);
++      if (ok) return;
++    } catch (_) {}
++    await launchUrl(Uri.parse('https://api.whatsapp.com/send?phone=201146050106'), mode: LaunchMode.externalApplication);
++  }
++
++  @override
++  Widget build(BuildContext context) => Container(
++        margin: const EdgeInsets.fromLTRB(16, 6, 16, 14),
++        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
++        decoration: BoxDecoration(
++          borderRadius: BorderRadius.circular(20),
++          gradient: LinearGradient(colors: [prim(context), Color.lerp(prim(context), Colors.black, 0.3)!]),
++          border: Border.all(color: gold, width: 1.5),
++          boxShadow: [BoxShadow(color: gold.withOpacity(.35), blurRadius: 14)],
++        ),
++        child: Row(children: [
++          const Icon(Icons.phone_in_talk, color: gold, size: 30),
++          const SizedBox(width: 12),
++          const Expanded(
++            child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
++              Text('للتواصل', style: TextStyle(color: Colors.white70, fontSize: 13)),
++              Directionality(
++                textDirection: TextDirection.ltr,
++                child: Text('01146050106',
++                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 2)),
++              ),
++            ]),
++          ),
++          InkWell(
++            onTap: openWhatsApp,
++            customBorder: const CircleBorder(),
++            child: Container(
++              padding: const EdgeInsets.all(11),
++              decoration: const BoxDecoration(color: Color(0xFF25D366), shape: BoxShape.circle),
++              child: const FaIcon(FontAwesomeIcons.whatsapp, color: Colors.white, size: 30),
++            ),
++          ),
++        ]),
++      );
++}
++
+ // ---------- منهج الصلاة ----------
+@@ -521,3 +950,3 @@
+           child: FilledButton(
+-            style: FilledButton.styleFrom(padding: const EdgeInsets.all(16), backgroundColor: l.isOdd ? green : const Color(0xFF8A6D0B)),
++            style: FilledButton.styleFrom(padding: const EdgeInsets.all(16), backgroundColor: l.isOdd ? prim(context) : const Color(0xFF8A6D0B)),
+             onPressed: () => open(l),
+@@ -526,2 +955,9 @@
+         ),
++      const SizedBox(height: 10),
++      OutlinedButton.icon(
++        style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(16), side: const BorderSide(color: gold, width: 1.5)),
++        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SibhaScreen())),
++        icon: const Icon(Icons.touch_app),
++        label: const Text('سبحة الصلاة على الحبيب ﷺ', style: TextStyle(fontSize: 17)),
++      ),
+     ]);
+@@ -530,2 +966,121 @@
+ 
++const sibhaTexts = [
++  'اللهم صل وسلم وبارك على سيدنا محمد وعلى آله عدد كمال الله وكما يليق بكماله',
++  'اللهم صل على سيدنا محمد النبي الأمي الحبيب العالي القدر العظيم الجاه وعلى آله وصحبه وسلم',
++  'اللهم صل وسلم وبارك على سيدنا محمد كريم الآباء والأمهات وعلى آله',
++  'اللهم صل على سيدنا محمد وعلى آله عدد ما في علم الله صلاة دائمة بدوام ملك الله',
++  'اللهم صل على سيدنا محمد الحامد المحمود وعلى آله وصحبه وسلم',
++  'اللهم صل على سيدنا محمد النعيم المقيم وعلى آله وصحبه وسلم',
++];
++const sibhaTargets = [33, 100, 313, 500, 1000];
++
++class SibhaScreen extends StatefulWidget {
++  const SibhaScreen({super.key});
++  @override
++  State<SibhaScreen> createState() => _SibhaScreenState();
++}
++
++class _SibhaScreenState extends State<SibhaScreen> {
++  int sel = 0, target = 100;
++  List<int> counts = List.filled(sibhaTexts.length, 0);
++
++  @override
++  void initState() {
++    super.initState();
++    final p = Repo.prefs;
++    sel = (p.getInt('sibha_sel') ?? 0).clamp(0, sibhaTexts.length - 1);
++    target = p.getInt('sibha_target') ?? 100;
++    counts = List.generate(sibhaTexts.length, (i) => p.getInt('sibha_$i') ?? 0);
++  }
++
++  void tap() {
++    HapticFeedback.lightImpact();
++    setState(() => counts[sel]++);
++    Repo.prefs.setInt('sibha_$sel', counts[sel]);
++    if (counts[sel] == target) {
++      HapticFeedback.heavyImpact();
++      showDialog(
++        context: context,
++        builder: (ctx) => AlertDialog(
++          title: const Text('هنيئا لكم يا أحباب رسول الله ﷺ', textAlign: TextAlign.center),
++          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('حسنًا'))],
++        ),
++      );
++    }
++  }
++
++  void reset() {
++    setState(() => counts[sel] = 0);
++    Repo.prefs.setInt('sibha_$sel', 0);
++  }
++
++  @override
++  Widget build(BuildContext context) {
++    final pr = prim(context);
++    return Scaffold(
++      appBar: AppBar(title: const Text('سبحة الصلاة على الحبيب ﷺ', style: TextStyle(fontSize: 16))),
++      body: ListView(padding: const EdgeInsets.all(16), children: [
++        DropdownButtonFormField<int>(
++          value: sel,
++          isExpanded: true,
++          decoration: const InputDecoration(labelText: 'اختر الصيغة', border: OutlineInputBorder()),
++          items: List.generate(
++            sibhaTexts.length,
++            (i) => DropdownMenuItem(value: i, child: Text('${i + 1}- ${sibhaTexts[i]}', maxLines: 2, overflow: TextOverflow.ellipsis)),
++          ),
++          onChanged: (v) {
++            setState(() => sel = v ?? 0);
++            Repo.prefs.setInt('sibha_sel', sel);
++          },
++        ),
++        const SizedBox(height: 14),
++        Card(
++          child: Padding(
++            padding: const EdgeInsets.all(16),
++            child: Text(sibhaTexts[sel], textAlign: TextAlign.center, style: const TextStyle(fontSize: 20, height: 1.8)),
++          ),
++        ),
++        const SizedBox(height: 12),
++        Center(child: Text('الهدف', style: TextStyle(color: Theme.of(context).hintColor))),
++        Wrap(alignment: WrapAlignment.center, spacing: 8, children: [
++          for (final t in sibhaTargets)
++            ChoiceChip(
++              label: Text('$t'),
++              selected: target == t,
++              onSelected: (_) {
++                setState(() => target = t);
++                Repo.prefs.setInt('sibha_target', t);
++              },
++            ),
++        ]),
++        const SizedBox(height: 20),
++        Center(
++          child: GestureDetector(
++            onTap: tap,
++            child: Container(
++              width: 200,
++              height: 200,
++              decoration: BoxDecoration(
++                shape: BoxShape.circle,
++                gradient: LinearGradient(colors: [pr, Color.lerp(pr, Colors.black, 0.35)!], begin: Alignment.topLeft, end: Alignment.bottomRight),
++                border: Border.all(color: gold, width: 4),
++                boxShadow: [BoxShadow(color: gold.withOpacity(.45), blurRadius: 20)],
++              ),
++              child: Center(
++                child: Text('${counts[sel]}', style: const TextStyle(fontSize: 60, color: Colors.white, fontWeight: FontWeight.bold)),
++              ),
++            ),
++          ),
++        ),
++        const SizedBox(height: 10),
++        Center(child: Text('اضغط على الدائرة للعد', style: TextStyle(color: Theme.of(context).hintColor))),
++        const SizedBox(height: 16),
++        Center(
++          child: OutlinedButton.icon(onPressed: reset, icon: const Icon(Icons.refresh), label: const Text('البداية من جديد')),
++        ),
++      ]),
++    );
++  }
++}
++
+ class LevelScreen extends StatefulWidget {
+@@ -550,2 +1105,11 @@
+     Repo.prefs.setStringList(key, done.map((e) => '$e').toList());
++    if (v) {
++      ScaffoldMessenger.of(context)
++        ..hideCurrentSnackBar()
++        ..showSnackBar(SnackBar(
++          content: const Text('زد يا حبيب رسول الله', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, color: Colors.white)),
++          backgroundColor: prim(context),
++          duration: const Duration(seconds: 2),
++        ));
++    }
+   }
+@@ -561,6 +1125,6 @@
+           padding: const EdgeInsets.all(10),
+-          child: Text('أنجزت ${done.length} من $days يوم  •  ${done.length * goal} صلاة', style: const TextStyle(fontSize: 16, color: green)),
++          child: Text('أنجزت ${done.length} من $days يوم  •  ${done.length * goal} صلاة', style: TextStyle(fontSize: 16, color: accent(context))),
+         ),
+         Container(
+-          color: green,
++          color: prim(context),
+           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+@@ -578,3 +1142,3 @@
+               return Container(
+-                color: d == widget.hl ? gold.withOpacity(.25) : (k.isEven ? Colors.white : cream),
++                color: d == widget.hl ? gold.withOpacity(.25) : (k.isEven ? Theme.of(context).cardColor : Theme.of(context).scaffoldBackgroundColor),
+                 padding: const EdgeInsets.symmetric(horizontal: 12),
+@@ -583,3 +1147,3 @@
+                   Expanded(flex: 2, child: Text('$goal صلاة', style: const TextStyle(fontSize: 16))),
+-                  SizedBox(width: 48, child: Checkbox(value: done.contains(d), activeColor: green, onChanged: (v) => tick(d, v ?? false))),
++                  SizedBox(width: 48, child: Checkbox(value: done.contains(d), activeColor: prim(context), onChanged: (v) => tick(d, v ?? false))),
+                 ]),
