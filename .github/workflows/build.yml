@@ -12,6 +12,8 @@ jobs:
           cp about_us.txt fadl_salah.txt anwar_library/assets/texts/
           cd anwar_library
           patch -l lib/main.dart < ../updates2.txt
+          mkdir -p assets/fonts
+          curl -fL -o assets/fonts/ArefRuqaa-Bold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/arefruqaa/ArefRuqaa-Bold.ttf || rm -f assets/fonts/ArefRuqaa-Bold.ttf
           python3 ../add_fadl.py lib/main.dart
       - uses: actions/setup-java@v4
         with:
