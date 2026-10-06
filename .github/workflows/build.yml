@@ -9,9 +9,10 @@ jobs:
       - name: Apply updates
         run: |
           cp hekma.txt elhama.txt sera.txt anwar_library/assets/index/
-          cp about_us.txt anwar_library/assets/texts/
+          cp about_us.txt fadl_salah.txt anwar_library/assets/texts/
           cd anwar_library
           patch -l lib/main.dart < ../updates2.txt
+          python3 ../add_fadl.py lib/main.dart
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
