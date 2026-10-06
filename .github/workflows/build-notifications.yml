@@ -1,0 +1,39 @@
+name: Build APK (with notifications)
+on: workflow_dispatch
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cat anwar_part_* > all.zip && unzip -q all.zip
+      - name: Apply updates
+        run: |
+          cp hekma.txt elhama.txt sera.txt anwar_library/assets/index/
+          cp about_us.txt fadl_salah.txt anwar_library/assets/texts/
+          cd anwar_library
+          patch -l lib/main.dart < ../updates2.txt
+          mkdir -p assets/fonts
+          curl -fL -o assets/fonts/ArefRuqaa-Bold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/arefruqaa/ArefRuqaa-Bold.ttf || rm -f assets/fonts/ArefRuqaa-Bold.ttf
+          python3 ../add_fadl.py lib/main.dart
+          python3 ../add_notifications.py dart lib/main.dart
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - name: Build
+        working-directory: anwar_library
+        run: |
+          flutter create --org com.anwar --project-name anwar_library --platforms android .
+          flutter pub add url_launcher font_awesome_flutter scrollable_positioned_list flutter_local_notifications timezone
+          python3 ../add_notifications.py android
+          sed -i 's/android:label="[^"]*"/android:label="مكتبة الأنوار المحمدية"/' android/app/src/main/AndroidManifest.xml
+          flutter pub get
+          dart run flutter_launcher_icons
+          flutter build apk --release --split-per-abi --target-platform android-arm64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: anwar-apk
+          path: anwar_library/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
