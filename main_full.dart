@@ -798,7 +798,7 @@ class AboutTab extends StatelessWidget {
 
 class ContactCard extends StatelessWidget {
   const ContactCard({super.key});
-  static const numbers = ['01146050106', '01285980155'];
+  static const numbers = ['01146050106'];
 
   // 01xxxxxxxxx -> 201xxxxxxxxx (صيغة واتساب لمصر)
   Future<void> openWhatsApp(String n) =>
@@ -839,8 +839,6 @@ class ContactCard extends StatelessWidget {
         ),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           line(context, numbers[0]),
-          const SizedBox(height: 10),
-          line(context, numbers[1]),
         ]),
       );
 }

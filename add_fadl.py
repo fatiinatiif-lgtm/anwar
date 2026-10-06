@@ -295,39 +295,7 @@ class _SebhaScreenState extends State<SebhaScreen> {
                 ]),
               ),
             ),
-            Expanded(
-              child: LayoutBuilder(builder: (_, bc) {
-                final room = bc.maxHeight - 8;
-                final d = room < 230 ? (room < 120 ? 120.0 : room) : 230.0;
-                return Center(
-                  child: GestureDetector(
-                    onTap: tap,
-                    child: SizedBox(
-                      width: d,
-                      height: d,
-                      child: Stack(alignment: Alignment.center, children: [
-                        SizedBox(
-                          width: d,
-                          height: d,
-                          child: CircularProgressIndicator(value: prog, strokeWidth: 10, color: a, backgroundColor: a.withOpacity(.15)),
-                        ),
-                        Container(
-                          width: d * .83,
-                          height: d * .83,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: fill,
-                            boxShadow: [BoxShadow(color: a.withOpacity(.4), blurRadius: 20, spreadRadius: 2)],
-                          ),
-                          child: Text('$count', style: TextStyle(fontSize: d * .24, fontWeight: FontWeight.bold, color: Colors.white)),
-                        ),
-                      ]),
-                    ),
-                  ),
-                );
-              }),
-            ),
+            const SizedBox(height: 8),
             Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
               stat('الأهداف المكتملة', '$goals', a),
               stat('مجموع الأهداف', '$done', a),
@@ -372,6 +340,39 @@ class _SebhaScreenState extends State<SebhaScreen> {
                 icon: const Icon(Icons.delete_outline),
                 label: const Text('حذف الأهداف السابقة'),
               ),
+            ),
+            Expanded(
+              child: LayoutBuilder(builder: (_, bc) {
+                final room = bc.maxHeight - 8;
+                final d = room < 230 ? (room < 120 ? 120.0 : room) : 230.0;
+                return Center(
+                  child: GestureDetector(
+                    onTap: tap,
+                    child: SizedBox(
+                      width: d,
+                      height: d,
+                      child: Stack(alignment: Alignment.center, children: [
+                        SizedBox(
+                          width: d,
+                          height: d,
+                          child: CircularProgressIndicator(value: prog, strokeWidth: 10, color: a, backgroundColor: a.withOpacity(.15)),
+                        ),
+                        Container(
+                          width: d * .83,
+                          height: d * .83,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: fill,
+                            boxShadow: [BoxShadow(color: a.withOpacity(.4), blurRadius: 20, spreadRadius: 2)],
+                          ),
+                          child: Text('$count', style: TextStyle(fontSize: d * .24, fontWeight: FontWeight.bold, color: Colors.white)),
+                        ),
+                      ]),
+                    ),
+                  ),
+                );
+              }),
             ),
           ]),
         ),
