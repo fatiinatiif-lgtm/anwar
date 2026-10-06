@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:pdfx/pdfx.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import 'dart:typed_data';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -490,6 +492,13 @@ class _BookScreenState extends State<BookScreen> {
   }
 }
 
+// نتيجة رسم صفحة: الصورة + نسبة (الارتفاع ÷ العرض)
+class PdfPageImg {
+  final Uint8List bytes;
+  final double ratio;
+  const PdfPageImg(this.bytes, this.ratio);
+}
+
 class PdfScreen extends StatefulWidget {
   final Book book;
   final int page;
@@ -498,45 +507,150 @@ class PdfScreen extends StatefulWidget {
   State<PdfScreen> createState() => _PdfScreenState();
 }
 
+// عارض الكتاب: الصفحات ورا بعضها بالتمرير لتحت، من غير تكبير ولا تصغير،
+// والصفحة بتترسم بدقة شاشة الموبايل بالظبط، والصفحات اللي جاية بتتجهز قبل ما توصلها
 class _PdfScreenState extends State<PdfScreen> {
-  late final PdfControllerPinch c;
+  PdfDocument? doc;
+  bool failed = false;
+  double firstRatio = 1.4;
+  late int current;
   late final ValueNotifier<int> pageNo;
-  int get total => pageCounts[widget.book.id] ?? 1;
+  final positions = ItemPositionsListener.create();
+  final futures = <int, Future<PdfPageImg?>>{};
+  Future<void> lock = Future<void>.value();
+  double pxWidth = 1080;
+  bool closed = false;
+
+  int get total => doc?.pagesCount ?? (pageCounts[widget.book.id] ?? 1);
 
   @override
   void initState() {
     super.initState();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    current = widget.page;
     pageNo = ValueNotifier<int>(widget.page);
-    c = PdfControllerPinch(document: PdfDocument.openAsset(widget.book.pdf), initialPage: widget.page);
+    positions.itemPositions.addListener(onPositions);
+    openDoc();
+  }
+
+  Future<void> openDoc() async {
+    try {
+      final d = await PdfDocument.openAsset(widget.book.pdf);
+      final p = await d.getPage(1);
+      final r = p.height / p.width;
+      await p.close();
+      if (!mounted) {
+        await d.close();
+        return;
+      }
+      setState(() {
+        doc = d;
+        firstRatio = r;
+      });
+    } catch (_) {
+      if (mounted) setState(() => failed = true);
+    }
   }
 
   @override
   void dispose() {
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    c.dispose();
+    closed = true;
+    positions.itemPositions.removeListener(onPositions);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    final d = doc;
+    lock.then((_) => d?.close());
     pageNo.dispose();
     super.dispose();
   }
 
-  // كل ما الصفحة تتغير: نحدّث الرقم ونحفظ آخر صفحة للكتاب
-  void onPage(int p) {
-    pageNo.value = p;
-    Repo.saveLast(widget.book.id, p);
+  // رسم الصفحات واحدة ورا التانية (أندرويد بيفتح صفحة واحدة في المرة)
+  Future<PdfPageImg?> pageImage(int i) => futures.putIfAbsent(i, () => enqueue(i));
+
+  Future<PdfPageImg?> enqueue(int i) {
+    final job = lock.then<PdfPageImg?>((_) async {
+      // الصفحات البعيدة عن مكان القراءة نتخطاها عشان القريبة تظهر بسرعة
+      if (closed || doc == null || (i + 1 - current).abs() > 8) return null;
+      try {
+        final page = await doc!.getPage(i + 1);
+        final ratio = page.height / page.width;
+        final img = await page.render(
+          width: pxWidth,
+          height: pxWidth * ratio,
+          format: PdfPageImageFormat.jpeg,
+          quality: 92,
+          backgroundColor: '#FFFFFF',
+        );
+        await page.close();
+        if (img == null) return null;
+        return PdfPageImg(img.bytes, ratio);
+      } catch (_) {
+        return null;
+      }
+    });
+    lock = job.then<void>((_) {});
+    job.then((v) {
+      if (v == null) futures.remove(i);
+    });
+    return job;
+  }
+
+  // نعرف رقم الصفحة اللي في نص الشاشة ونحفظه
+  void onPositions() {
+    final pos = positions.itemPositions.value;
+    if (pos.isEmpty) return;
+    int? best;
+    for (final p in pos) {
+      if (p.itemLeadingEdge < 0.5 && p.itemTrailingEdge >= 0.5) {
+        if (best == null || p.index < best) best = p.index;
+      }
+    }
+    final idx = best ?? pos.map((p) => p.index).reduce((a, b) => a < b ? a : b);
+    final page = idx + 1;
+    if (page != current) {
+      current = page;
+      pageNo.value = page;
+      Repo.saveLast(widget.book.id, page);
+      if (futures.length > 60) {
+        futures.removeWhere((k, _) => (k + 1 - page).abs() > 30);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final dark = isDark(context);
+    final mq = MediaQuery.of(context);
+    var w = mq.size.width * mq.devicePixelRatio;
+    if (w < 720) w = 720;
+    if (w > 2000) w = 2000;
+    pxWidth = w;
+    final n = doc?.pagesCount ?? 1;
+    var start = widget.page - 1;
+    if (start < 0) start = 0;
+    if (start >= n) start = n - 1;
     return Scaffold(
-      backgroundColor: dark ? Colors.black : Colors.white,
+      backgroundColor: dark ? Colors.black : const Color(0xFFE0E0E0),
       body: Stack(children: [
-        ColorFiltered(
-          colorFilter: dark
-              ? const ColorFilter.matrix(<double>[-1, 0, 0, 0, 255, 0, -1, 0, 0, 255, 0, 0, -1, 0, 255, 0, 0, 0, 1, 0])
-              : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
-          child: PdfViewPinch(controller: c, onPageChanged: onPage),
-        ),
+        if (failed)
+          const Center(child: Text('تعذر فتح الكتاب'))
+        else if (doc == null)
+          const Center(child: CircularProgressIndicator())
+        else
+          ColorFiltered(
+            colorFilter: dark
+                ? const ColorFilter.matrix(<double>[-1, 0, 0, 0, 255, 0, -1, 0, 0, 255, 0, 0, -1, 0, 255, 0, 0, 0, 1, 0])
+                : const ColorFilter.mode(Colors.transparent, BlendMode.dst),
+            child: ScrollablePositionedList.builder(
+              itemCount: n,
+              initialScrollIndex: start,
+              itemPositionsListener: positions,
+              minCacheExtent: 1800,
+              itemBuilder: (_, i) => Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: _PdfTile(this, i, firstRatio),
+              ),
+            ),
+          ),
         Positioned(
           top: 6,
           right: 6,
@@ -577,6 +691,52 @@ class _PdfScreenState extends State<PdfScreen> {
         ),
       ]),
     );
+  }
+}
+
+class _PdfTile extends StatefulWidget {
+  final _PdfScreenState host;
+  final int index;
+  final double ratio;
+  const _PdfTile(this.host, this.index, this.ratio);
+  @override
+  State<_PdfTile> createState() => _PdfTileState();
+}
+
+class _PdfTileState extends State<_PdfTile> {
+  PdfPageImg? img;
+  int tries = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    load();
+  }
+
+  Future<void> load() async {
+    final r = await widget.host.pageImage(widget.index);
+    if (!mounted) return;
+    if (r == null) {
+      tries++;
+      if (tries > 8) return;
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      if (mounted) load();
+      return;
+    }
+    setState(() => img = r);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final i = img;
+    if (i == null) {
+      return AspectRatio(
+        aspectRatio: 1 / widget.ratio,
+        child: const ColoredBox(color: Colors.white, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+      );
+    }
+    return Image.memory(i.bytes,
+        width: double.infinity, fit: BoxFit.fitWidth, gaplessPlayback: true, filterQuality: FilterQuality.high);
   }
 }
 
