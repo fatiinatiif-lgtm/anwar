@@ -5,6 +5,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:pdfx/pdfx.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest_all.dart' as tzdata;
+import 'package:timezone/timezone.dart' as tz;
 import 'dart:typed_data';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -150,7 +153,11 @@ class Repo {
 
   // آخر صفحة وقف عندها القارئ في كل كتاب
   static int? lastPage(String id) => prefs.getInt('last_$id');
-  static void saveLast(String id, int p) => prefs.setInt('last_$id', p);
+  static void saveLast(String id, int p) {
+    prefs.setInt('last_$id', p);
+    prefs.setString('last_book', id);
+    readTick.value++;
+  }
 
   static Future<void> init() async {
     prefs = await SharedPreferences.getInstance();
@@ -205,6 +212,7 @@ Future<void> openPdf(BuildContext c, Book b, int page) {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Repo.init();
+  initReminders();
   runApp(const App());
 }
 
@@ -254,6 +262,7 @@ class App extends StatelessWidget {
 
 // ---------- متغيرات عامة ----------
 final shellIndex = ValueNotifier<int>(0);
+final readTick = ValueNotifier<int>(0); // بيتغير لما القراءة تتقدم (كمّل القراءة وشريط الكتب)
 final wirdTick = ValueNotifier<int>(0); // بيتغير كل ما الورد يتعدّل، عشان دايرة الرئيسية تتحدّث
 
 // قلوب بتطير لفوق احتفالاً بإتمام الهدف
@@ -365,7 +374,7 @@ class _ShellState extends State<Shell> {
   @override
   Widget build(BuildContext context) => Scaffold(
         body: SafeArea(
-          child: IndexedStack(index: i, children: const [HomeTab(), BooksTab(), PrayerTab(), FavsTab(), AboutTab(), MoreTab()]),
+          child: IndexedStack(index: i, children: const [HomeTab(), BooksTab(), PrayerTab(), FavsTab(), MoreTab()]),
         ),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: i,
@@ -380,7 +389,6 @@ class _ShellState extends State<Shell> {
             BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'الكتب'),
             BottomNavigationBarItem(icon: Icon(Icons.event_available), label: 'منهج الصلاة'),
             BottomNavigationBarItem(icon: Icon(Icons.star), label: 'المفضلة'),
-            BottomNavigationBarItem(icon: Icon(Icons.info), label: 'من نحن'),
             BottomNavigationBarItem(icon: Icon(Icons.more_horiz), label: 'المزيد'),
           ],
         ),
@@ -428,6 +436,8 @@ class _HomeTabState extends State<HomeTab> {
                 const Clock(),
                 const SizedBox(height: 12),
                 const TodayWirdCard(),
+                const SizedBox(height: 10),
+                const ContinueReadingCard(),
                 const SizedBox(height: 16),
                 const AuthorPhoto(),
                 const SizedBox(height: 12),
@@ -524,35 +534,55 @@ class AuthorPhoto extends StatelessWidget {
 class BooksTab extends StatelessWidget {
   const BooksTab({super.key});
   @override
-  Widget build(BuildContext context) => ListView.builder(
-        padding: const EdgeInsets.all(10),
-        itemCount: Repo.books.length,
-        itemBuilder: (_, k) {
-          final b = Repo.books[k];
-          return Card(
-            child: InkWell(
-              onTap: () {
-                if (Repo.index[b.id]!.isEmpty) {
-                  openPdf(context, b, Repo.lastPage(b.id) ?? 1);
-                } else {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => BookScreen(b)));
-                }
-              },
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Row(children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(6),
-                    child: Image.asset(b.cover, width: 80, height: 112, fit: BoxFit.cover, cacheWidth: 240),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(child: Text(b.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600))),
-                  const Icon(Icons.chevron_left),
-                ]),
+  Widget build(BuildContext context) => ValueListenableBuilder<int>(
+        valueListenable: readTick,
+        builder: (context, _, __) => ListView.builder(
+          padding: const EdgeInsets.all(10),
+          itemCount: Repo.books.length,
+          itemBuilder: (_, k) {
+            final b = Repo.books[k];
+            final last = Repo.lastPage(b.id);
+            final total = pageCounts[b.id] ?? 1;
+            final prog = last == null ? 0.0 : (last >= total ? 1.0 : last / total);
+            return Card(
+              child: InkWell(
+                onTap: () {
+                  if (Repo.index[b.id]!.isEmpty) {
+                    openPdf(context, b, Repo.lastPage(b.id) ?? 1);
+                  } else {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => BookScreen(b)));
+                  }
+                },
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: Image.asset(b.cover, width: 80, height: 112, fit: BoxFit.cover, cacheWidth: 240),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(b.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                        if (last != null && last > 1) ...[
+                          const SizedBox(height: 10),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: LinearProgressIndicator(value: prog, minHeight: 6),
+                          ),
+                          const SizedBox(height: 4),
+                          Text('وصلت لصفحة $last من $total  •  ${(prog * 100).round()}%',
+                              style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+                        ],
+                      ]),
+                    ),
+                    const Icon(Icons.chevron_left),
+                  ]),
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       );
 }
 
@@ -657,6 +687,9 @@ class _PdfScreenState extends State<PdfScreen> {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     current = widget.page;
     pageNo = ValueNotifier<int>(widget.page);
+    Repo.prefs.setString('last_book', widget.book.id);
+    if (Repo.lastPage(widget.book.id) == null) Repo.prefs.setInt('last_${widget.book.id}', widget.page);
+    WidgetsBinding.instance.addPostFrameCallback((_) => readTick.value++);
     positions.itemPositions.addListener(onPositions);
     openDoc();
   }
@@ -913,15 +946,32 @@ class TextScreen extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: Text(title)), body: TextView(asset));
 }
 
-class AboutTab extends StatelessWidget {
-  const AboutTab({super.key});
+class AboutScreen extends StatelessWidget {
+  const AboutScreen({super.key});
+
+  static const channelUrl = 'https://whatsapp.com/channel/0029VbDUiUG2ER6g2kWq7D1E';
+
   @override
-  Widget build(BuildContext context) => Column(children: [
-        Container(width: double.infinity, color: pri(context), padding: const EdgeInsets.all(14),
-            child: const Text('من نحن', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 20))),
-        const Expanded(child: TextView('assets/texts/about_us.txt')),
-        const ContactCard(),
-      ]);
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('من نحن')),
+        body: Column(children: [
+          const Expanded(child: TextView('assets/texts/about_us.txt')),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+            child: SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF25D366), padding: const EdgeInsets.all(14)),
+                onPressed: () => launchUrl(Uri.parse(channelUrl), mode: LaunchMode.externalApplication),
+                icon: const FaIcon(FontAwesomeIcons.whatsapp, color: Colors.white),
+                label: const Text('انضموا لقناتنا بالواتساب',
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
+              ),
+            ),
+          ),
+          const ContactCard(),
+        ]),
+      );
 }
 
 class ContactCard extends StatelessWidget {
@@ -1614,6 +1664,32 @@ class MoreTab extends StatelessWidget {
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ColorsScreen())),
               ),
             ),
+            Card(
+              child: ListTile(
+                leading: Icon(Icons.notifications_active, color: accent(context)),
+                title: const Text('إعدادات الإشعارات', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                trailing: const Icon(Icons.chevron_left),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotifSettingsScreen())),
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: Icon(Icons.support_agent, color: accent(context)),
+                title: const Text('أبلغ عن مشكلة أو اقتراح', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                subtitle: const Text('تواصل معنا مباشرة على الواتساب'),
+                trailing: const Icon(Icons.chevron_left),
+                onTap: () => openLink(
+                    context, 'https://wa.me/20${ContactCard.numbers.first.substring(1)}?text=${Uri.encodeComponent(reportMessage)}'),
+              ),
+            ),
+            Card(
+              child: ListTile(
+                leading: Icon(Icons.info_outline, color: accent(context)),
+                title: const Text('من نحن', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                trailing: const Icon(Icons.chevron_left),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutScreen())),
+              ),
+            ),
           ]),
         ),
       ]);
@@ -2205,4 +2281,316 @@ class TodayWirdCard extends StatelessWidget {
           );
         },
       );
+}
+
+
+// ---------- كمّل القراءة ----------
+class ContinueReadingCard extends StatelessWidget {
+  const ContinueReadingCard({super.key});
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<int>(
+        valueListenable: readTick,
+        builder: (context, _, __) {
+          final id = Repo.prefs.getString('last_book');
+          if (id == null) return const SizedBox.shrink();
+          final found = Repo.books.where((x) => x.id == id);
+          if (found.isEmpty) return const SizedBox.shrink();
+          final b = found.first;
+          final page = Repo.lastPage(id) ?? 1;
+          final total = pageCounts[id] ?? 1;
+          final prog = page >= total ? 1.0 : page / total;
+          final a = accent(context);
+          final hint = Theme.of(context).hintColor;
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => openPdf(context, b, page),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Image.asset(b.cover, width: 54, height: 76, fit: BoxFit.cover, cacheWidth: 160),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('كمّل القراءة', style: TextStyle(fontSize: 13, color: hint)),
+                      Text(b.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 6),
+                      ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(value: prog, minHeight: 6)),
+                      const SizedBox(height: 4),
+                      Text('صفحة $page من $total', style: TextStyle(fontSize: 12, color: hint)),
+                    ]),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(Icons.play_circle_fill, color: a, size: 36),
+                ]),
+              ),
+            ),
+          );
+        },
+      );
+}
+
+// ---------- الإبلاغ عن مشكلة ----------
+const reportMessage = 'السلام عليكم، عندي ملاحظة على تطبيق مكتبة الأنوار المحمدية:\n';
+
+// بيفتح رابط، ولو فشل بينسخ النص (لو اتحدد) ويقول للمستخدم
+Future<void> openLink(BuildContext context, String url, {String? copy}) async {
+  var ok = false;
+  try {
+    ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  } catch (_) {}
+  if (!ok && copy != null) {
+    await Clipboard.setData(ClipboardData(text: copy));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('تم نسخ الرسالة، الصقها وأرسلها', textAlign: TextAlign.center)));
+    }
+  }
+}
+
+// ---------- التذكيرات (إشعارات) ----------
+const reminderMessages = [
+  'صل على الحبيب محمد ﷺ',
+  'اقرأ صلوات الأنوار على سيد الأبرار تلق الهنا والسعد والأسرار',
+  'دندن بمديح المصطفى ﷺ',
+  'هل قمت بإنهاء ورد منهج الصلاة، هيا قم وسارع، فالحبيبﷺ قريب يرد السلام عليك',
+  'ألا تقرأ في مدح رسول الله؟!',
+  'اقرأ مناجاة الأشواق',
+  'أتمم ما بدأت قراءته',
+  'اتخذ لك وردا يوميا من هذه الأنوار، لتنور حياتك وروحك',
+  'افتح عداد الصلاة على الحبيب ﷺ واختر صيغة واذكر ألفاً وألفينَ وثلاثة وزد.',
+];
+
+final FlutterLocalNotificationsPlugin _notifPlugin = FlutterLocalNotificationsPlugin();
+
+NotificationDetails reminderDetails(String msg) => NotificationDetails(
+      android: AndroidNotificationDetails(
+        'anwar_reminders',
+        'تذكيرات الأنوار',
+        channelDescription: 'تذكير بالصلاة على الحبيب ﷺ',
+        importance: Importance.high,
+        priority: Priority.high,
+        styleInformation: BigTextStyleInformation(msg),
+      ),
+    );
+
+Future<void> askNotifPermission() async {
+  try {
+    await _notifPlugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.requestNotificationsPermission();
+  } catch (_) {}
+}
+
+Future<void> initReminders() async {
+  try {
+    tzdata.initializeTimeZones();
+    await _notifPlugin.initialize(
+      settings: const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
+    );
+    if (Repo.prefs.getBool('notif_on') ?? true) await askNotifPermission();
+    await scheduleReminders();
+  } catch (e) {
+    debugPrint('reminders error: $e');
+  }
+}
+
+// هل الساعة h داخل ساعات الراحة (من from لحد to، ممكن تعدّي نص الليل)
+bool inQuietHours(int h, int from, int to) {
+  if (from == to) return false;
+  return from < to ? (h >= from && h < to) : (h >= from || h < to);
+}
+
+// نجدول إشعارات الأسبوع الجاي دفعة واحدة، وكل ما التطبيق يتفتح أو الإعدادات تتغير بنعيد الجدولة
+Future<void> scheduleReminders() async {
+  try {
+    await _notifPlugin.cancelAllPendingNotifications();
+    final p = Repo.prefs;
+    if (!(p.getBool('notif_on') ?? true)) return;
+    final hours = p.getInt('notif_hours') ?? 2;
+    final quietOn = p.getBool('notif_quiet_on') ?? false;
+    final qFrom = p.getInt('notif_qfrom') ?? 23;
+    final qTo = p.getInt('notif_qto') ?? 7;
+    final rnd = dmath.Random();
+    var last = -1;
+    var id = 1;
+    final slots = (7 * 24) ~/ hours;
+    for (var k = 1; k <= slots; k++) {
+      final t = DateTime.now().add(Duration(hours: hours * k));
+      if (quietOn && inQuietHours(t.hour, qFrom, qTo)) continue;
+      var i = rnd.nextInt(reminderMessages.length);
+      if (i == last) i = (i + 1) % reminderMessages.length;
+      last = i;
+      final msg = reminderMessages[i];
+      await _notifPlugin.zonedSchedule(
+        id: id++,
+        title: 'مكتبة الأنوار المحمدية',
+        body: msg,
+        scheduledDate: tz.TZDateTime.from(t, tz.UTC),
+        notificationDetails: reminderDetails(msg),
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      );
+    }
+  } catch (e) {
+    debugPrint('schedule error: $e');
+  }
+}
+
+Future<void> testReminder() async {
+  try {
+    await askNotifPermission();
+    await _notifPlugin.show(
+      id: 0,
+      title: 'مكتبة الأنوار المحمدية',
+      body: reminderMessages[0],
+      notificationDetails: reminderDetails(reminderMessages[0]),
+    );
+  } catch (e) {
+    debugPrint('test notif error: $e');
+  }
+}
+
+String hourLabel(int h) {
+  final h12 = h % 12 == 0 ? 12 : h % 12;
+  return '$h12 ${h < 12 ? 'ص' : 'م'}';
+}
+
+class NotifSettingsScreen extends StatefulWidget {
+  const NotifSettingsScreen({super.key});
+  @override
+  State<NotifSettingsScreen> createState() => _NotifSettingsScreenState();
+}
+
+class _NotifSettingsScreenState extends State<NotifSettingsScreen> {
+  late bool on, quietOn;
+  late int hours, qFrom, qTo;
+
+  @override
+  void initState() {
+    super.initState();
+    final p = Repo.prefs;
+    on = p.getBool('notif_on') ?? true;
+    hours = p.getInt('notif_hours') ?? 2;
+    quietOn = p.getBool('notif_quiet_on') ?? false;
+    qFrom = p.getInt('notif_qfrom') ?? 23;
+    qTo = p.getInt('notif_qto') ?? 7;
+  }
+
+  // نحفظ الإعدادات ونعيد جدولة الإشعارات
+  Future<void> apply() async {
+    final p = Repo.prefs;
+    await p.setBool('notif_on', on);
+    await p.setInt('notif_hours', hours);
+    await p.setBool('notif_quiet_on', quietOn);
+    await p.setInt('notif_qfrom', qFrom);
+    await p.setInt('notif_qto', qTo);
+    if (on) await askNotifPermission();
+    await scheduleReminders();
+  }
+
+  Widget hourPicker(String label, int v, void Function(int) onSel) => Expanded(
+        child: DropdownButtonFormField<int>(
+          value: v,
+          isExpanded: true,
+          decoration: InputDecoration(labelText: label, border: const OutlineInputBorder(), isDense: true),
+          items: [for (var h = 0; h < 24; h++) DropdownMenuItem(value: h, child: Text(hourLabel(h)))],
+          onChanged: (x) {
+            if (x != null) onSel(x);
+          },
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final hint = Theme.of(context).hintColor;
+    return Scaffold(
+      appBar: AppBar(title: const Text('إعدادات الإشعارات', style: TextStyle(fontSize: 18))),
+      body: ListView(padding: const EdgeInsets.all(14), children: [
+        Card(
+          child: SwitchListTile(
+            title: const Text('تفعيل التذكيرات', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+            subtitle: const Text('إشعار برسالة تذكّرك بالصلاة على النبي ﷺ'),
+            value: on,
+            onChanged: (v) {
+              setState(() => on = v);
+              apply();
+            },
+          ),
+        ),
+        if (on) ...[
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('تكرار الإشعار', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 4, children: [
+                  for (final h in const [1, 2, 3, 4, 6])
+                    ChoiceChip(
+                      label: Text(h == 1 ? 'كل ساعة' : (h == 2 ? 'كل ساعتين' : 'كل $h ساعات')),
+                      selected: hours == h,
+                      onSelected: (_) {
+                        setState(() => hours = h);
+                        apply();
+                      },
+                    ),
+                ]),
+              ]),
+            ),
+          ),
+          Card(
+            child: Column(children: [
+              SwitchListTile(
+                title: const Text('ساعات راحة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                subtitle: const Text('بدون إشعارات في هذه الفترة'),
+                value: quietOn,
+                onChanged: (v) {
+                  setState(() => quietOn = v);
+                  apply();
+                },
+              ),
+              if (quietOn)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                  child: Row(children: [
+                    hourPicker('من', qFrom, (x) {
+                      setState(() => qFrom = x);
+                      apply();
+                    }),
+                    const SizedBox(width: 10),
+                    hourPicker('إلى', qTo, (x) {
+                      setState(() => qTo = x);
+                      apply();
+                    }),
+                  ]),
+                ),
+            ]),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.all(14)),
+              onPressed: testReminder,
+              icon: const Icon(Icons.notifications_active),
+              label: const Text('تجربة إشعار الآن', style: TextStyle(fontSize: 16)),
+            ),
+          ),
+        ],
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: Text(
+            'الإشعارات بتتجدّد كل ما تفتح التطبيق، وبتتجهز للأسبوع الجاي. لو الموبايل بيوقف التطبيق في الخلفية، اسمح له من إعدادات البطارية.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: hint, height: 1.6),
+          ),
+        ),
+      ]),
+    );
+  }
 }
