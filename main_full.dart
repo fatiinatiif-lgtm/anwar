@@ -930,6 +930,42 @@ class _PrayerTabState extends State<PrayerTab> {
   }
 }
 
+// ---------- منهج الصلاة: الورد اليومي ----------
+String latinDigits(String s) {
+  const ar = '٠١٢٣٤٥٦٧٨٩';
+  var out = s;
+  for (var i = 0; i < 10; i++) {
+    out = out.replaceAll(ar[i], '$i');
+  }
+  return out;
+}
+
+// هل اتعلّم اليوم ده "تم" في أي مستوى؟
+bool wirdDayDone(DateTime t, Map<String, Set<int>> cache) {
+  for (var l = 1; l <= 5; l++) {
+    final k = 'p${l}_${t.year}_${t.month}';
+    final set = cache.putIfAbsent(k, () => (Repo.prefs.getStringList(k) ?? []).map(int.parse).toSet());
+    if (set.contains(t.day)) return true;
+  }
+  return false;
+}
+
+// عدد الأيام المتتالية اللي اتم فيها الورد (لحد النهارده)، ونحفظ أفضل سلسلة
+int wirdStreak() {
+  final cache = <String, Set<int>>{};
+  final now = DateTime.now();
+  var t = DateTime(now.year, now.month, now.day);
+  if (!wirdDayDone(t, cache)) t = DateTime(t.year, t.month, t.day - 1);
+  var n = 0;
+  while (n < 1000 && wirdDayDone(t, cache)) {
+    n++;
+    t = DateTime(t.year, t.month, t.day - 1);
+  }
+  final best = Repo.prefs.getInt('wird_best') ?? 0;
+  if (n > best) Repo.prefs.setInt('wird_best', n);
+  return n;
+}
+
 class LevelScreen extends StatefulWidget {
   final int level, y, m, hl;
   const LevelScreen(this.level, this.y, this.m, this.hl, {super.key});
@@ -941,43 +977,117 @@ class _LevelScreenState extends State<LevelScreen> {
   late Set<int> done;
   String get key => 'p${widget.level}_${widget.y}_${widget.m}';
   int get goal => widget.level * 2000;
+  int get days => DateTime(widget.y, widget.m + 1, 0).day;
+
   @override
   void initState() {
     super.initState();
-    done = (Repo.prefs.getStringList(key) ?? []).map(int.parse).toSet();
+    done = loadDone();
   }
+
+  Set<int> loadDone() => (Repo.prefs.getStringList(key) ?? []).map(int.parse).toSet();
+
+  // اللي اتعدّ في اليوم ده (مجموع الدفعات)
+  int dayCount(int d) {
+    final raw = Repo.prefs.getString('pw${widget.level}_${widget.y}_${widget.m}_$d');
+    if (raw == null) return 0;
+    var s = 0;
+    for (final x in raw.split(',')) {
+      s += int.tryParse(x) ?? 0;
+    }
+    return s;
+  }
+
+  void snack(String msg) => ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(
+      content: Text(msg, textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, color: Colors.white)),
+      backgroundColor: pri(context),
+      duration: const Duration(seconds: 2),
+    ));
 
   void tick(int d, bool v) {
     setState(() => v ? done.add(d) : done.remove(d));
     Repo.prefs.setStringList(key, done.map((e) => '$e').toList());
     if (v) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: const Text('زد يا حبيب رسول الله', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, color: Colors.white)),
-          backgroundColor: pri(context),
-          duration: const Duration(seconds: 2),
-        ));
+      snack('زد يا حبيب رسول الله');
+      checkMonth();
     }
+  }
+
+  // لو الشهر كله اتم: رسالة تهنئة (مرة واحدة)
+  void checkMonth() {
+    final flag = 'mc_$key';
+    if (done.length >= days && !(Repo.prefs.getBool(flag) ?? false)) {
+      Repo.prefs.setBool(flag, true);
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('ما شاء الله، أتممتم الشهر كاملاً',
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, height: 1.7)),
+          content: Text('أتممتم ورد المستوى ${levelNames[widget.level - 1]} لمدة $days يوماً\nهنيئا لكم يا أحباب رسول الله ﷺ',
+              textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, height: 1.8)),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('تم', style: TextStyle(fontSize: 17)))],
+        ),
+      );
+    }
+  }
+
+  Future<void> openDay(int d) async {
+    final now = DateTime.now();
+    if (DateTime(widget.y, widget.m, d).isAfter(DateTime(now.year, now.month, now.day))) {
+      snack('هذا اليوم لم يأتِ بعد');
+      return;
+    }
+    await Navigator.push(
+        context, MaterialPageRoute(builder: (_) => WirdDayScreen(widget.level, widget.y, widget.m, d)));
+    if (!mounted) return;
+    setState(() => done = loadDone());
+    checkMonth();
   }
 
   @override
   Widget build(BuildContext context) {
-    final days = DateTime(widget.y, widget.m + 1, 0).day;
     const hs = TextStyle(fontWeight: FontWeight.bold, color: Colors.white);
+    final hint = Theme.of(context).hintColor;
+    final streak = wirdStreak();
+    final best = Repo.prefs.getInt('wird_best') ?? streak;
+    final pct = done.length * 100 ~/ days;
     return Scaffold(
       appBar: AppBar(title: Text('المستوى ${levelNames[widget.level - 1]} — ${months[widget.m - 1]} ${widget.y}', style: const TextStyle(fontSize: 16))),
       body: Column(children: [
         Padding(
-          padding: const EdgeInsets.all(10),
-          child: Text('أنجزت ${done.length} من $days يوم  •  ${done.length * goal} صلاة', style: TextStyle(fontSize: 16, color: accent(context))),
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+          child: Column(children: [
+            Text('أنجزت ${done.length} من $days يوم  •  ${done.length * goal} صلاة',
+                style: TextStyle(fontSize: 16, color: accent(context))),
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(value: done.length / days, minHeight: 10),
+            ),
+            const SizedBox(height: 4),
+            Text('$pct% من الشهر', style: TextStyle(color: hint)),
+            const SizedBox(height: 6),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+              Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.local_fire_department, color: sec(context)),
+                const SizedBox(width: 4),
+                Text('أيام متتالية: $streak', style: const TextStyle(fontSize: 15)),
+              ]),
+              Text('أفضل سلسلة: $best', style: const TextStyle(fontSize: 15)),
+            ]),
+            const SizedBox(height: 4),
+            Text('اضغط على اليوم لفتح ورده وعدّه', style: TextStyle(fontSize: 13, color: hint)),
+          ]),
         ),
         Container(
           color: pri(context),
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
           child: const Row(children: [
             Expanded(child: Text('اليوم', style: hs)),
-            Expanded(flex: 2, child: Text('الهدف اليومي', style: hs)),
+            Expanded(flex: 2, child: Text('ورد اليوم', style: hs)),
             SizedBox(width: 48, child: Text('تم', style: hs)),
           ]),
         ),
@@ -986,19 +1096,279 @@ class _LevelScreenState extends State<LevelScreen> {
             itemCount: days,
             itemBuilder: (_, k) {
               final d = k + 1;
-              return Container(
-                color: d == widget.hl ? sec(context).withOpacity(.25) : (k.isEven ? Theme.of(context).cardColor : Theme.of(context).scaffoldBackgroundColor),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(children: [
-                  Expanded(child: Text('$d', style: const TextStyle(fontSize: 16))),
-                  Expanded(flex: 2, child: Text('$goal صلاة', style: const TextStyle(fontSize: 16))),
-                  SizedBox(width: 48, child: Checkbox(value: done.contains(d), activeColor: pri(context), onChanged: (v) => tick(d, v ?? false))),
-                ]),
+              final isDone = done.contains(d);
+              final cnt = dayCount(d);
+              final shown = isDone ? (cnt > goal ? cnt : goal) : cnt;
+              final bg = d == widget.hl
+                  ? sec(context).withOpacity(.25)
+                  : (k.isEven ? Theme.of(context).cardColor : Theme.of(context).scaffoldBackgroundColor);
+              return Material(
+                color: bg,
+                child: InkWell(
+                  onTap: () => openDay(d),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(children: [
+                      Expanded(child: Text('$d', style: const TextStyle(fontSize: 16))),
+                      Expanded(flex: 2, child: Text('$shown / $goal', style: const TextStyle(fontSize: 16))),
+                      SizedBox(
+                        width: 48,
+                        child: Checkbox(value: isDone, activeColor: pri(context), onChanged: (v) => tick(d, v ?? false)),
+                      ),
+                    ]),
+                  ),
+                ),
               );
             },
           ),
         ),
       ]),
+    );
+  }
+}
+
+// شاشة ورد اليوم: الورد مقسوم على 4 دفعات، وعدّاد بيحفظ كل حاجة
+class WirdDayScreen extends StatefulWidget {
+  final int level, y, m, d;
+  const WirdDayScreen(this.level, this.y, this.m, this.d, {super.key});
+  @override
+  State<WirdDayScreen> createState() => _WirdDayScreenState();
+}
+
+class _WirdDayScreenState extends State<WirdDayScreen> {
+  static const names = ['بعد الفجر', 'بعد الظهر', 'بعد العصر', 'بعد المغرب'];
+  late List<int> parts;
+  late int sel;
+
+  int get goal => widget.level * 2000;
+  int get pg => goal ~/ 4;
+  String get pkey => 'pw${widget.level}_${widget.y}_${widget.m}_${widget.d}';
+  String get dkey => 'p${widget.level}_${widget.y}_${widget.m}';
+  int get total => parts.fold<int>(0, (a, b) => a + b);
+
+  @override
+  void initState() {
+    super.initState();
+    parts = [0, 0, 0, 0];
+    final raw = Repo.prefs.getString(pkey);
+    if (raw != null) {
+      final xs = raw.split(',');
+      for (var i = 0; i < 4 && i < xs.length; i++) {
+        parts[i] = int.tryParse(xs[i]) ?? 0;
+      }
+    }
+    final o = nextOpen(0);
+    sel = o == -1 ? 3 : o;
+  }
+
+  // أول دفعة لسه ما خلصتش (بدءاً من مكان معيّن)
+  int nextOpen(int from) {
+    for (var k = 0; k < 4; k++) {
+      final i = (from + k) % 4;
+      if (parts[i] < pg) return i;
+    }
+    return -1;
+  }
+
+  void save() => Repo.prefs.setString(pkey, parts.join(','));
+
+  void markDone(bool v) {
+    final p = Repo.prefs;
+    final set = (p.getStringList(dkey) ?? []).map(int.parse).toSet();
+    if (v) {
+      set.add(widget.d);
+    } else {
+      set.remove(widget.d);
+    }
+    p.setStringList(dkey, set.map((e) => '$e').toList());
+  }
+
+  void add(int n) {
+    if (n <= 0) return;
+    final wasDone = total >= goal;
+    final before = List<int>.from(parts);
+    var left = n;
+    var i = parts[sel] < pg ? sel : nextOpen(sel);
+    while (left > 0 && i != -1) {
+      final room = pg - parts[i];
+      final take = left < room ? left : room;
+      parts[i] += take;
+      left -= take;
+      if (parts[i] >= pg) i = nextOpen(i);
+    }
+    if (left > 0) parts[3] += left; // كل الدفعات خلصت: الزيادة تتحسب إضافية
+    int? finished;
+    for (var k = 0; k < 4; k++) {
+      if (before[k] < pg && parts[k] >= pg) finished = k;
+    }
+    setState(() {
+      if (i != -1) sel = i;
+    });
+    save();
+    if (!wasDone && total >= goal) {
+      markDone(true);
+      final s = wirdStreak();
+      HapticFeedback.heavyImpact();
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('هنيئا لكم يا أحباب رسول الله ﷺ',
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, height: 1.7)),
+          content: Text('أتممتم ورد اليوم: $goal صلاة\nأيام متتالية: $s',
+              textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, height: 1.8)),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('تم', style: TextStyle(fontSize: 17)))],
+        ),
+      );
+    } else if (finished != null) {
+      HapticFeedback.mediumImpact();
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text('أتممت دفعة ${names[finished]}',
+              textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, color: Colors.white)),
+          backgroundColor: pri(context),
+          duration: const Duration(seconds: 2),
+        ));
+    }
+  }
+
+  void undo() {
+    if (parts[sel] <= 0) return;
+    final wasDone = total >= goal;
+    setState(() => parts[sel]--);
+    save();
+    if (wasDone && total < goal) markDone(false);
+  }
+
+  Future<void> askNumber() async {
+    final c = TextEditingController();
+    final n = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('إضافة عدد'),
+        content: TextField(
+          controller: c,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: 'مثال: 100'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx, int.tryParse(latinDigits(c.text.trim()))), child: const Text('إضافة')),
+        ],
+      ),
+    );
+    if (n != null && n > 0) add(n);
+  }
+
+  Widget tile(int i, Color a) {
+    final full = parts[i] >= pg;
+    final isSel = i == sel;
+    return Expanded(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => setState(() => sel = i),
+        child: Container(
+          margin: const EdgeInsets.all(4),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: isSel ? a : Colors.grey.withOpacity(.4), width: isSel ? 2.5 : 1),
+            color: full ? a.withOpacity(.12) : null,
+          ),
+          child: Column(children: [
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              if (full) Icon(Icons.check_circle, size: 18, color: a),
+              if (full) const SizedBox(width: 4),
+              Text(names[i], style: const TextStyle(fontWeight: FontWeight.w600)),
+            ]),
+            const SizedBox(height: 4),
+            Text('${parts[i]} / $pg', style: TextStyle(color: Theme.of(context).hintColor)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final a = accent(context);
+    final hint = Theme.of(context).hintColor;
+    final cur = parts[sel];
+    final prog = cur >= pg ? 1.0 : cur / pg;
+    final totalProg = total >= goal ? 1.0 : total / goal;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('ورد يوم ${widget.d} ${months[widget.m - 1]} — المستوى ${levelNames[widget.level - 1]}',
+            style: const TextStyle(fontSize: 16)),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
+          child: Column(children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(children: [
+                  Text('$total / $goal صلاة', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: a)),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: LinearProgressIndicator(value: totalProg, minHeight: 10),
+                  ),
+                ]),
+              ),
+            ),
+            Row(children: [tile(0, a), tile(1, a)]),
+            Row(children: [tile(2, a), tile(3, a)]),
+            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+              TextButton.icon(onPressed: undo, icon: const Icon(Icons.undo), label: const Text('تراجع')),
+              TextButton.icon(onPressed: askNumber, icon: const Icon(Icons.add_circle_outline), label: const Text('إضافة عدد')),
+            ]),
+            Expanded(
+              child: LayoutBuilder(builder: (_, bc) {
+                final room = bc.maxHeight - 8;
+                final dd = room < 230 ? (room < 120 ? 120.0 : room) : 230.0;
+                return Center(
+                  child: GestureDetector(
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      add(1);
+                    },
+                    child: SizedBox(
+                      width: dd,
+                      height: dd,
+                      child: Stack(alignment: Alignment.center, children: [
+                        SizedBox(
+                          width: dd,
+                          height: dd,
+                          child: CircularProgressIndicator(value: prog, strokeWidth: 10, color: a, backgroundColor: a.withOpacity(.15)),
+                        ),
+                        Container(
+                          width: dd * .83,
+                          height: dd * .83,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: pri(context),
+                            boxShadow: [BoxShadow(color: a.withOpacity(.4), blurRadius: 20, spreadRadius: 2)],
+                          ),
+                          child: Column(mainAxisSize: MainAxisSize.min, children: [
+                            Text('$cur', style: TextStyle(fontSize: dd * .22, fontWeight: FontWeight.bold, color: Colors.white)),
+                            Text('من $pg', style: TextStyle(fontSize: dd * .07, color: Colors.white70)),
+                          ]),
+                        ),
+                      ]),
+                    ),
+                  ),
+                );
+              }),
+            ),
+            Text('اضغط على الدائرة للعدّ، أو أضف عدداً دفعة واحدة', style: TextStyle(fontSize: 13, color: hint)),
+          ]),
+        ),
+      ),
     );
   }
 }
