@@ -199,6 +199,7 @@ class _SebhaScreenState extends State<SebhaScreen> {
           actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('تم', style: TextStyle(fontSize: 17)))],
         ),
       );
+      showHearts(context);
     }
   }
 

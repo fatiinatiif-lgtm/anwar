@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as dmath;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -25,12 +26,35 @@ class AppPalette {
 
 const palettes = [
   AppPalette('الأخضر والذهبي', Color(0xFF0B5D3B), Color(0xFFC9A227), Color(0xFFFBF7EC)),
-  AppPalette('الأزرق', Color(0xFF1565C0), Color(0xFFE0A100), Color(0xFFF2F7FD)),
+  AppPalette('الأخضر الزمردي', Color(0xFF047857), Color(0xFFF59E0B), Color(0xFFF0FBF6)),
+  AppPalette('الأخضر الزيتي', Color(0xFF556B2F), Color(0xFFD4A017), Color(0xFFF6F7EE)),
+  AppPalette('الأخضر البحري', Color(0xFF2E7D5B), Color(0xFFE6B800), Color(0xFFF2FAF5)),
   AppPalette('الفيروزي', Color(0xFF00796B), Color(0xFFE0A100), Color(0xFFF0F8F7)),
+  AppPalette('الفيروزي الفاتح', Color(0xFF1F8F84), Color(0xFFFFB300), Color(0xFFF0FAF9)),
+  AppPalette('الأزرق المخضر', Color(0xFF0E7C86), Color(0xFFFFB74D), Color(0xFFF0F9FA)),
+  AppPalette('الأزرق', Color(0xFF1565C0), Color(0xFFE0A100), Color(0xFFF2F7FD)),
+  AppPalette('الأزرق السماوي', Color(0xFF0277BD), Color(0xFFFFB300), Color(0xFFF0F8FD)),
+  AppPalette('الأزرق الملكي', Color(0xFF1E3A8A), Color(0xFFFBBF24), Color(0xFFF3F6FD)),
+  AppPalette('الكحلي', Color(0xFF1B2A49), Color(0xFFD4AF37), Color(0xFFF4F5F9)),
+  AppPalette('الأزرق الرمادي', Color(0xFF5C7C99), Color(0xFFC9A227), Color(0xFFF3F6F9)),
+  AppPalette('النيلي', Color(0xFF3F51B5), Color(0xFFFFC107), Color(0xFFF4F5FC)),
   AppPalette('البنفسجي', Color(0xFF5E35B1), Color(0xFFD4A017), Color(0xFFF6F2FB)),
-  AppPalette('العنابي', Color(0xFF8E1B2D), Color(0xFFC9A227), Color(0xFFFCF4F5)),
+  AppPalette('البنفسجي الداكن', Color(0xFF4527A0), Color(0xFFE0A100), Color(0xFFF5F2FB)),
+  AppPalette('الأرجواني', Color(0xFF7B1FA2), Color(0xFFFFCA28), Color(0xFFF8F1FB)),
+  AppPalette('الليلكي', Color(0xFF8E6BBF), Color(0xFFD4A017), Color(0xFFF8F5FC)),
   AppPalette('الوردي', Color(0xFFAD1457), Color(0xFFC9A227), Color(0xFFFDF2F6)),
+  AppPalette('الوردي الناعم', Color(0xFFD14B80), Color(0xFFC9A227), Color(0xFFFEF3F7)),
+  AppPalette('الكرزي', Color(0xFFB71C4A), Color(0xFFFFD54F), Color(0xFFFDF2F5)),
+  AppPalette('العنابي', Color(0xFF8E1B2D), Color(0xFFC9A227), Color(0xFFFCF4F5)),
+  AppPalette('الأحمر', Color(0xFFC62828), Color(0xFFE0A100), Color(0xFFFDF3F3)),
+  AppPalette('المرجاني', Color(0xFFD9534F), Color(0xFFC9A227), Color(0xFFFEF5F3)),
+  AppPalette('البرتقالي', Color(0xFFE65100), Color(0xFFFFD54F), Color(0xFFFFF6EE)),
+  AppPalette('العسلي', Color(0xFF9A6B1F), Color(0xFFE0B04A), Color(0xFFFBF6EC)),
+  AppPalette('الرملي', Color(0xFF8D7B4F), Color(0xFFB8860B), Color(0xFFFAF7EF)),
   AppPalette('البني', Color(0xFF6D4C41), Color(0xFFC9A227), Color(0xFFFAF5F0)),
+  AppPalette('الرمادي الأنيق', Color(0xFF455A64), Color(0xFFC9A227), Color(0xFFF3F5F6)),
+  AppPalette('الفحمي', Color(0xFF263238), Color(0xFFC9A227), Color(0xFFF2F4F5)),
+  AppPalette('الأسود والذهبي', Color(0xFF1C1C1C), Color(0xFFD4AF37), Color(0xFFF7F6F2)),
 ];
 
 final paletteIndex = ValueNotifier<int>(0);
@@ -196,6 +220,12 @@ class App extends StatelessWidget {
             final ext = PaletteExt(p.primary, p.accent);
             return MaterialApp(
               debugShowCheckedModeBanner: false,
+              navigatorKey: navKey,
+              navigatorObservers: [homeObserver],
+              builder: (context, child) => Stack(fit: StackFit.expand, children: [
+                child ?? const SizedBox.shrink(),
+                const HomeSideButton(),
+              ]),
               title: 'مكتبة الأنوار المحمدية',
               locale: const Locale('ar'),
               supportedLocales: const [Locale('ar')],
@@ -228,6 +258,172 @@ class App extends StatelessWidget {
       );
 }
 
+// ---------- زرار الرجوع للشاشة الرئيسية + القلوب ----------
+final navKey = GlobalKey<NavigatorState>();
+final homeDepth = ValueNotifier<int>(0);
+final shellIndex = ValueNotifier<int>(0);
+
+// بيعدّ الصفحات المفتوحة عشان نظهر زرار الرجوع للرئيسية بس لما نكون في صفحة فرعية
+class HomeObserver extends NavigatorObserver {
+  int n = 0;
+  void notifyDepth() => WidgetsBinding.instance.addPostFrameCallback((_) => homeDepth.value = n);
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (route is PageRoute) {
+      n++;
+      notifyDepth();
+    }
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (route is PageRoute) {
+      n--;
+      notifyDepth();
+    }
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (route is PageRoute) {
+      n--;
+      notifyDepth();
+    }
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    if (oldRoute is PageRoute) n--;
+    if (newRoute is PageRoute) n++;
+    notifyDepth();
+  }
+}
+
+final homeObserver = HomeObserver();
+
+void goHome() {
+  shellIndex.value = 0;
+  navKey.currentState?.popUntil((r) => r.isFirst);
+}
+
+class HomeSideButton extends StatelessWidget {
+  const HomeSideButton({super.key});
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: Listenable.merge([homeDepth, shellIndex]),
+        builder: (context, _) {
+          if (homeDepth.value <= 1 && shellIndex.value == 0) return const SizedBox.shrink();
+          final h = MediaQuery.of(context).size.height;
+          const r = BorderRadius.only(topRight: Radius.circular(14), bottomRight: Radius.circular(14));
+          return Positioned(
+            left: 0,
+            top: h * .42,
+            child: Semantics(
+              button: true,
+              label: 'الرجوع للشاشة الرئيسية',
+              child: Material(
+                color: pri(context).withOpacity(.88),
+                elevation: 4,
+                borderRadius: r,
+                child: InkWell(
+                  borderRadius: r,
+                  onTap: goHome,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.home, color: Colors.white, size: 24),
+                      SizedBox(height: 2),
+                      Text('الرئيسية', style: TextStyle(color: Colors.white, fontSize: 10)),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      );
+}
+
+// قلوب بتطير لفوق احتفالاً بإتمام الهدف
+void showHearts(BuildContext context) {
+  final overlay = Overlay.of(context);
+  late OverlayEntry entry;
+  entry = OverlayEntry(builder: (_) => HeartsBurst(onDone: () => entry.remove()));
+  overlay.insert(entry);
+}
+
+class _Heart {
+  final double x, size, delay, rise, phase, amp;
+  final Color color;
+  const _Heart(this.x, this.size, this.delay, this.rise, this.phase, this.amp, this.color);
+}
+
+class HeartsBurst extends StatefulWidget {
+  final VoidCallback onDone;
+  const HeartsBurst({super.key, required this.onDone});
+  @override
+  State<HeartsBurst> createState() => _HeartsBurstState();
+}
+
+class _HeartsBurstState extends State<HeartsBurst> with SingleTickerProviderStateMixin {
+  late final AnimationController c;
+  late final List<_Heart> hearts;
+
+  @override
+  void initState() {
+    super.initState();
+    final r = dmath.Random();
+    const colors = [Color(0xFFE91E63), Color(0xFFFF5252), Color(0xFFFF80AB), Color(0xFFF06292), Color(0xFFFFD54F)];
+    hearts = List.generate(
+      28,
+      (i) => _Heart(
+        r.nextDouble(),
+        18 + r.nextDouble() * 28,
+        r.nextDouble() * 0.45,
+        0.6 + r.nextDouble() * 0.4,
+        r.nextDouble() * 6.28,
+        8 + r.nextDouble() * 18,
+        colors[r.nextInt(colors.length)],
+      ),
+    );
+    c = AnimationController(vsync: this, duration: const Duration(milliseconds: 3400))
+      ..addStatusListener((st) {
+        if (st == AnimationStatus.completed) widget.onDone();
+      })
+      ..forward();
+  }
+
+  @override
+  void dispose() {
+    c.dispose();
+    super.dispose();
+  }
+
+  Widget heartAt(_Heart h, double t, double w, double ht) {
+    final lt = (t - h.delay) / (1 - h.delay);
+    if (lt <= 0) return const SizedBox.shrink();
+    final p = lt > 1 ? 1.0 : lt;
+    final top = ht - (ht * h.rise + 40) * p;
+    final left = h.x * (w - h.size) + dmath.sin(p * 6.28 * 1.5 + h.phase) * h.amp;
+    final op = p < 0.7 ? 1.0 : (1 - (p - 0.7) / 0.3);
+    return Positioned(
+      left: left,
+      top: top,
+      child: Opacity(opacity: op < 0 ? 0.0 : op, child: Icon(Icons.favorite, size: h.size, color: h.color)),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+        child: LayoutBuilder(
+          builder: (_, bc) => AnimatedBuilder(
+            animation: c,
+            builder: (_, __) => Stack(children: [for (final h in hearts) heartAt(h, c.value, bc.maxWidth, bc.maxHeight)]),
+          ),
+        ),
+      );
+}
+
 class Shell extends StatefulWidget {
   const Shell({super.key});
   @override
@@ -236,6 +432,24 @@ class Shell extends StatefulWidget {
 
 class _ShellState extends State<Shell> {
   int i = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    i = shellIndex.value;
+    shellIndex.addListener(onIdx);
+  }
+
+  void onIdx() {
+    if (mounted && i != shellIndex.value) setState(() => i = shellIndex.value);
+  }
+
+  @override
+  void dispose() {
+    shellIndex.removeListener(onIdx);
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         body: SafeArea(
@@ -248,7 +462,7 @@ class _ShellState extends State<Shell> {
           unselectedItemColor: Colors.grey,
           selectedFontSize: 11,
           unselectedFontSize: 11,
-          onTap: (v) => setState(() => i = v),
+          onTap: (v) => shellIndex.value = v,
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home), label: 'الرئيسية'),
             BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'الكتب'),
@@ -1011,6 +1225,7 @@ class _LevelScreenState extends State<LevelScreen> {
     Repo.prefs.setStringList(key, done.map((e) => '$e').toList());
     if (v) {
       snack('زد يا حبيب رسول الله');
+      showHearts(context);
       checkMonth();
     }
   }
@@ -1031,6 +1246,7 @@ class _LevelScreenState extends State<LevelScreen> {
           actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('تم', style: TextStyle(fontSize: 17)))],
         ),
       );
+      showHearts(context);
     }
   }
 
@@ -1220,6 +1436,7 @@ class _WirdDayScreenState extends State<WirdDayScreen> {
           actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('تم', style: TextStyle(fontSize: 17)))],
         ),
       );
+      showHearts(context);
     } else if (finished != null) {
       HapticFeedback.mediumImpact();
       ScaffoldMessenger.of(context)
@@ -1385,6 +1602,17 @@ class MoreTab extends StatelessWidget {
             child: const Text('المزيد', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 20))),
         Expanded(
           child: ListView(padding: const EdgeInsets.all(14), children: [
+            Card(
+              child: ValueListenableBuilder<ThemeMode>(
+                valueListenable: themeMode,
+                builder: (_, m, __) => SwitchListTile(
+                  secondary: Icon(Icons.dark_mode, color: accent(context)),
+                  title: const Text('الوضع الليلي', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                  value: m == ThemeMode.dark,
+                  onChanged: (_) => toggleDark(),
+                ),
+              ),
+            ),
             Card(
               child: ListTile(
                 leading: Icon(Icons.calendar_month, color: accent(context)),
