@@ -434,11 +434,7 @@ class _HomeTabState extends State<HomeTab> {
         child: q.trim().isEmpty
             ? ListView(children: [
                 const Clock(),
-                const SizedBox(height: 12),
-                const TodayWirdCard(),
-                const SizedBox(height: 10),
-                const ContinueReadingCard(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 const AuthorPhoto(),
                 const SizedBox(height: 12),
                 Center(child: Text('شاعر رسول الله ﷺ', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: accent(context)))),
@@ -451,6 +447,10 @@ class _HomeTabState extends State<HomeTab> {
                     label: const Text('التعريف بالكاتب'),
                   ),
                 ),
+                const SizedBox(height: 22),
+                const TodayWirdCard(),
+                const SizedBox(height: 10),
+                const ContinueReadingCard(),
                 const SizedBox(height: 24),
               ])
             : res.isEmpty
@@ -523,7 +523,7 @@ class AuthorPhoto extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(4),
               decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
-              child: ClipOval(child: Image.asset('assets/images/author.png', width: 170, height: 170, fit: BoxFit.cover, cacheWidth: 400)),
+              child: ClipOval(child: Image.asset('assets/images/author.png', width: 215, height: 215, fit: BoxFit.cover, cacheWidth: 640)),
             ),
           ),
         ),
@@ -964,7 +964,7 @@ class AboutScreen extends StatelessWidget {
                 style: FilledButton.styleFrom(backgroundColor: const Color(0xFF25D366), padding: const EdgeInsets.all(14)),
                 onPressed: () => launchUrl(Uri.parse(channelUrl), mode: LaunchMode.externalApplication),
                 icon: const FaIcon(FontAwesomeIcons.whatsapp, color: Colors.white),
-                label: const Text('انضموا لقناتنا بالواتساب',
+                label: const Text('قناة صلوات الأنوار «واتساب»',
                     style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white)),
               ),
             ),
