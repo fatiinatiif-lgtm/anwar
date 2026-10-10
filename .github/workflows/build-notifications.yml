@@ -10,6 +10,9 @@ jobs:
         run: |
           cp hekma.txt elhama.txt sera.txt anwar_library/assets/index/
           cp about_us.txt fadl_salah.txt anwar_library/assets/texts/
+          cp newbooks/*.pdf anwar_library/assets/books/ || true
+          cp newbooks/*.jpg anwar_library/assets/covers/ || true
+          cp newbooks/*.txt anwar_library/assets/index/ || true
           cd anwar_library
           cp ../main_full.dart lib/main.dart
           mkdir -p assets/fonts
