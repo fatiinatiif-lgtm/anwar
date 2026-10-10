@@ -144,6 +144,7 @@ class Repo {
     Book('nabd', 'نبض الأشواق لرسول الله صلى الله عليه وسلم'),
     Book('sera', 'المنظومة اللطيفة في السيرة النبوية الشريفة'),
     Book('elmaw', 'المولد النبوي الشريف'),
+    Book('alf', 'روضة العشاق في سيرة المتمم الأخلاق'),
   ];
   static final Map<String, List<Entry>> index = {};
   static late SharedPreferences prefs;
@@ -202,7 +203,7 @@ class Repo {
   }
 }
 
-const pageCounts = {'borda': 32, 'diaa': 216, 'elhama': 28, 'elmaw': 50, 'hekma': 177, 'menhatu': 135, 'mesk': 185, 'nabd': 11, 'raheeq': 240, 'salawat': 110, 'sera': 40, 'tagaliyat': 280, 'tohfa': 217};
+const pageCounts = {'borda': 32, 'diaa': 216, 'elhama': 28, 'elmaw': 50, 'hekma': 177, 'menhatu': 135, 'mesk': 185, 'nabd': 11, 'raheeq': 240, 'salawat': 110, 'sera': 40, 'tagaliyat': 280, 'tohfa': 217, 'alf': 94};
 
 Future<void> openPdf(BuildContext c, Book b, int page) {
   final max = pageCounts[b.id] ?? 1;
