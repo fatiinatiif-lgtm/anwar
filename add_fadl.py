@@ -33,7 +33,7 @@ if 'TextAlign.justify' not in s:
     print('text layout fixed')
 
 
-# ---------- 3) شاشة الترحيب (7 ثواني) قبل الشاشة الرئيسية ----------
+# ---------- 3) شاشة الترحيب (4 ثواني) قبل الشاشة الرئيسية ----------
 if 'class SplashScreen' not in s:
     if not re.search(r"home:\s*const Shell\(\)", s):
         sys.exit('ERROR: could not find home: const Shell() in main.dart')
@@ -51,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 7), () {
+    Future.delayed(const Duration(seconds: 4), () {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(PageRouteBuilder<void>(
         pageBuilder: (_, __, ___) => const Shell(),

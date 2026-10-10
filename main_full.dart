@@ -675,6 +675,8 @@ class _PdfScreenState extends State<PdfScreen> {
   late int current;
   late final ValueNotifier<int> pageNo;
   final positions = ItemPositionsListener.create();
+  final itemScroll = ItemScrollController();
+  late List<Bm> bms;
   final futures = <int, Future<PdfPageImg?>>{};
   Future<void> lock = Future<void>.value();
   double pxWidth = 1080;
@@ -692,6 +694,7 @@ class _PdfScreenState extends State<PdfScreen> {
     if (Repo.lastPage(widget.book.id) == null) Repo.prefs.setInt('last_${widget.book.id}', widget.page);
     WidgetsBinding.instance.addPostFrameCallback((_) => readTick.value++);
     positions.itemPositions.addListener(onPositions);
+    bms = loadBookmarks(widget.book.id);
     openDoc();
   }
 
@@ -756,6 +759,130 @@ class _PdfScreenState extends State<PdfScreen> {
     return job;
   }
 
+  bool isMarked(int p) => bms.any((b) => b.page == p);
+
+  void jumpTo(int page) {
+    var p = page;
+    if (p < 1) p = 1;
+    if (p > total) p = total;
+    itemScroll.jumpTo(index: p - 1);
+  }
+
+  Future<String?> askNote() {
+    final c = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('علامة مرجعية'),
+        content: TextField(controller: c, autofocus: true, decoration: const InputDecoration(hintText: 'ملاحظة (اختياري)')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('حفظ')),
+        ],
+      ),
+    );
+  }
+
+  Future<void> addBookmark() async {
+    final note = await askNote();
+    if (note == null) return;
+    final list = loadBookmarks(widget.book.id)
+      ..removeWhere((b) => b.page == current)
+      ..add(Bm(current, note));
+    saveBookmarks(widget.book.id, list);
+    if (mounted) setState(() => bms = loadBookmarks(widget.book.id));
+  }
+
+  void removeBookmark(int page) {
+    final list = loadBookmarks(widget.book.id)..removeWhere((b) => b.page == page);
+    saveBookmarks(widget.book.id, list);
+    setState(() => bms = loadBookmarks(widget.book.id));
+  }
+
+  Future<void> askPage() async {
+    final c = TextEditingController();
+    final n = await showDialog<int>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('اذهب إلى صفحة'),
+        content: TextField(
+          controller: c,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(hintText: 'من 1 إلى $total'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx, int.tryParse(latinDigits(c.text.trim()))), child: const Text('اذهب')),
+        ],
+      ),
+    );
+    if (n != null) jumpTo(n);
+  }
+
+  void openBookmarks() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setSheet) {
+        final list = bms;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Row(children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () async {
+                      await addBookmark();
+                      setSheet(() {});
+                    },
+                    icon: const Icon(Icons.bookmark_add),
+                    label: Text('علامة في صفحة $current'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    askPage();
+                  },
+                  icon: const Icon(Icons.find_in_page_outlined),
+                  label: const Text('اذهب لصفحة'),
+                ),
+              ]),
+              const Divider(height: 20),
+              if (list.isEmpty)
+                const Padding(padding: EdgeInsets.all(20), child: Text('لا توجد علامات في هذا الكتاب بعد'))
+              else
+                Flexible(
+                  child: ListView(shrinkWrap: true, children: [
+                    for (final b in list)
+                      ListTile(
+                        leading: CircleAvatar(child: Text('${b.page}', style: const TextStyle(fontSize: 13))),
+                        title: Text(b.note.isEmpty ? 'صفحة ${b.page}' : b.note),
+                        subtitle: b.note.isEmpty ? null : Text('صفحة ${b.page}'),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          jumpTo(b.page);
+                        },
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () {
+                            removeBookmark(b.page);
+                            setSheet(() {});
+                          },
+                        ),
+                      ),
+                  ]),
+                ),
+            ]),
+          ),
+        );
+      }),
+    );
+  }
+
   // نعرف رقم الصفحة اللي في نص الشاشة ونحفظه
   void onPositions() {
     final pos = positions.itemPositions.value;
@@ -806,6 +933,7 @@ class _PdfScreenState extends State<PdfScreen> {
               itemCount: n,
               initialScrollIndex: start,
               itemPositionsListener: positions,
+              itemScrollController: itemScroll,
               minCacheExtent: 1800,
               itemBuilder: (_, i) => Padding(
                 padding: const EdgeInsets.only(bottom: 6),
@@ -831,6 +959,18 @@ class _PdfScreenState extends State<PdfScreen> {
                 child: IconButton(
                   icon: Icon(dark ? Icons.light_mode : Icons.dark_mode, color: Colors.white),
                   onPressed: toggleDark,
+                ),
+              ),
+              const SizedBox(width: 8),
+              CircleAvatar(
+                backgroundColor: Colors.black45,
+                child: ValueListenableBuilder<int>(
+                  valueListenable: pageNo,
+                  builder: (_, p, __) => IconButton(
+                    icon: Icon(isMarked(p) ? Icons.bookmark : Icons.bookmark_border,
+                        color: isMarked(p) ? const Color(0xFFFFD54F) : Colors.white),
+                    onPressed: openBookmarks,
+                  ),
                 ),
               ),
             ]),
@@ -1667,6 +1807,14 @@ class MoreTab extends StatelessWidget {
             ),
             Card(
               child: ListTile(
+                leading: Icon(Icons.bookmarks, color: accent(context)),
+                title: const Text('علاماتي المرجعية', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                trailing: const Icon(Icons.chevron_left),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BookmarksScreen())),
+              ),
+            ),
+            Card(
+              child: ListTile(
                 leading: Icon(Icons.notifications_active, color: accent(context)),
                 title: const Text('إعدادات الإشعارات', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                 trailing: const Icon(Icons.chevron_left),
@@ -2396,6 +2544,7 @@ Future<void> initReminders() async {
       settings: const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')),
     );
     if (Repo.prefs.getBool('notif_on') ?? true) await askNotifPermission();
+    wirdTick.addListener(wirdChanged);
     await scheduleReminders();
   } catch (e) {
     debugPrint('reminders error: $e');
@@ -2408,39 +2557,158 @@ bool inQuietHours(int h, int from, int to) {
   return from < to ? (h >= from && h < to) : (h >= from || h < to);
 }
 
-// نجدول إشعارات الأسبوع الجاي دفعة واحدة، وكل ما التطبيق يتفتح أو الإعدادات تتغير بنعيد الجدولة
+// بنجدول إشعارات الأسبوع الجاي دفعة واحدة، وكل ما التطبيق يتفتح أو الإعدادات تتغير بنعيد الجدولة
 Future<void> scheduleReminders() async {
   try {
     await _notifPlugin.cancelAllPendingNotifications();
-    final p = Repo.prefs;
-    if (!(p.getBool('notif_on') ?? true)) return;
-    final hours = p.getInt('notif_hours') ?? 2;
-    final quietOn = p.getBool('notif_quiet_on') ?? false;
-    final qFrom = p.getInt('notif_qfrom') ?? 23;
-    final qTo = p.getInt('notif_qto') ?? 7;
-    final rnd = dmath.Random();
-    var last = -1;
-    var id = 1;
-    final slots = (7 * 24) ~/ hours;
-    for (var k = 1; k <= slots; k++) {
-      final t = DateTime.now().add(Duration(hours: hours * k));
-      if (quietOn && inQuietHours(t.hour, qFrom, qTo)) continue;
-      var i = rnd.nextInt(reminderMessages.length);
-      if (i == last) i = (i + 1) % reminderMessages.length;
-      last = i;
-      final msg = reminderMessages[i];
-      await _notifPlugin.zonedSchedule(
-        id: id++,
-        title: 'مكتبة الأنوار المحمدية',
-        body: msg,
-        scheduledDate: tz.TZDateTime.from(t, tz.UTC),
-        notificationDetails: reminderDetails(msg),
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-      );
-    }
+  } catch (_) {}
+  try {
+    await scheduleGeneric();
   } catch (e) {
     debugPrint('schedule error: $e');
   }
+  await scheduleWirdReminders(cancelFirst: false);
+}
+
+// التذكيرات العامة (كل كام ساعة)
+Future<void> scheduleGeneric() async {
+  final p = Repo.prefs;
+  if (!(p.getBool('notif_on') ?? true)) return;
+  final hours = p.getInt('notif_hours') ?? 2;
+  final quietOn = p.getBool('notif_quiet_on') ?? false;
+  final qFrom = p.getInt('notif_qfrom') ?? 23;
+  final qTo = p.getInt('notif_qto') ?? 7;
+  final rnd = dmath.Random();
+  var last = -1;
+  var id = 1;
+  final slots = (7 * 24) ~/ hours;
+  for (var k = 1; k <= slots; k++) {
+    final t = DateTime.now().add(Duration(hours: hours * k));
+    if (quietOn && inQuietHours(t.hour, qFrom, qTo)) continue;
+    var i = rnd.nextInt(reminderMessages.length);
+    if (i == last) i = (i + 1) % reminderMessages.length;
+    last = i;
+    final msg = reminderMessages[i];
+    await _notifPlugin.zonedSchedule(
+      id: id++,
+      title: 'مكتبة الأنوار المحمدية',
+      body: msg,
+      scheduledDate: tz.TZDateTime.from(t, tz.UTC),
+      notificationDetails: reminderDetails(msg),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+    );
+  }
+}
+
+// عدد صلوات يوم معيّن في مستوى معيّن (لو اليوم متعلّم "تم" يتحسب الهدف كامل)
+int wirdCountFor(int l, DateTime t) {
+  final p = Repo.prefs;
+  var c = 0;
+  for (final x in (p.getString('pw${l}_${t.year}_${t.month}_${t.day}') ?? '').split(',')) {
+    c += int.tryParse(x) ?? 0;
+  }
+  final done = (p.getStringList('p${l}_${t.year}_${t.month}') ?? <String>[]).contains('${t.day}');
+  final goal = l * 2000;
+  return done ? (c > goal ? c : goal) : c;
+}
+
+// مجموع صلوات اليوم في كل المستويات
+int wirdDayTotal(DateTime t) {
+  var s = 0;
+  for (var l = 1; l <= 5; l++) {
+    s += wirdCountFor(l, t);
+  }
+  return s;
+}
+
+String timeLabel(int h, int m) {
+  final h12 = h % 12 == 0 ? 12 : h % 12;
+  return '$h12:${m.toString().padLeft(2, '0')} ${h < 12 ? 'ص' : 'م'}';
+}
+
+// تذكير ورد اليوم (في الوقت اللي المستخدم يحدده) + ملخص الأسبوع يوم الجمعة
+Future<void> scheduleWirdReminders({bool cancelFirst = true}) async {
+  try {
+    final p = Repo.prefs;
+    if (cancelFirst) {
+      for (var i = 0; i < 8; i++) {
+        await _notifPlugin.cancel(id: 5000 + i);
+      }
+      for (var i = 0; i < 4; i++) {
+        await _notifPlugin.cancel(id: 6000 + i);
+      }
+    }
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // 1) تذكير ورد اليوم: بيختفي لو الورد خلص
+    final l = p.getInt('wird_level') ?? 0;
+    if ((p.getBool('wird_rem_on') ?? true) && l >= 1 && l <= 5) {
+      final goal = l * 2000;
+      final h = p.getInt('wird_rem_h') ?? 20;
+      final mi = p.getInt('wird_rem_m') ?? 0;
+      for (var i = 0; i < 8; i++) {
+        final at = DateTime(today.year, today.month, today.day + i, h, mi);
+        if (!at.isAfter(now)) continue;
+        String msg;
+        if (i == 0) {
+          final remaining = goal - wirdCountFor(l, today);
+          if (remaining <= 0) continue;
+          msg = 'متبقي لك ${fmtNum(remaining)} صلاة من ورد اليوم (المستوى ${levelNames[l - 1]})';
+        } else {
+          msg = 'ورد اليوم ${fmtNum(goal)} صلاة على الحبيب ﷺ، ابدأ ورد المستوى ${levelNames[l - 1]}';
+        }
+        await _notifPlugin.zonedSchedule(
+          id: 5000 + i,
+          title: 'ورد اليوم',
+          body: msg,
+          scheduledDate: tz.TZDateTime.from(at, tz.UTC),
+          notificationDetails: reminderDetails(msg),
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        );
+      }
+    }
+
+    // 2) ملخص الأسبوع كل جمعة الساعة 10 صباحاً
+    if (p.getBool('week_rem_on') ?? true) {
+      var f = DateTime(now.year, now.month, now.day, 10);
+      while (f.weekday != DateTime.friday || !f.isAfter(now)) {
+        f = DateTime(f.year, f.month, f.day + 1, 10);
+      }
+      for (var i = 0; i < 4; i++) {
+        final target = DateTime(f.year, f.month, f.day + 7 * i, 10);
+        var msg = 'اليوم الجمعة، أكثروا من الصلاة على النبي ﷺ';
+        if (i == 0) {
+          var sum = 0;
+          for (var k = 6; k >= 0; k--) {
+            final d = DateTime(target.year, target.month, target.day - k);
+            if (d.isAfter(today)) break;
+            sum += wirdDayTotal(d);
+          }
+          if (sum > 0) {
+            msg = 'مجموع ورد أسبوعك: ${fmtNum(sum)} صلاة على النبي ﷺ، تقبل الله. وأكثروا من الصلاة عليه يوم الجمعة';
+          }
+        }
+        await _notifPlugin.zonedSchedule(
+          id: 6000 + i,
+          title: 'ملخص الأسبوع',
+          body: msg,
+          scheduledDate: tz.TZDateTime.from(target, tz.UTC),
+          notificationDetails: reminderDetails(msg),
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        );
+      }
+    }
+  } catch (e) {
+    debugPrint('wird reminders error: $e');
+  }
+}
+
+// لما الورد يتغيّر نحدّث نص تذكير النهارده (بعد ثانيتين من آخر تغيير)
+Timer? _wirdTimer;
+void wirdChanged() {
+  _wirdTimer?.cancel();
+  _wirdTimer = Timer(const Duration(seconds: 2), () => scheduleWirdReminders());
 }
 
 Future<void> testReminder() async {
@@ -2469,8 +2737,8 @@ class NotifSettingsScreen extends StatefulWidget {
 }
 
 class _NotifSettingsScreenState extends State<NotifSettingsScreen> {
-  late bool on, quietOn;
-  late int hours, qFrom, qTo;
+  late bool on, quietOn, wirdOn, weekOn;
+  late int hours, qFrom, qTo, wH, wM;
 
   @override
   void initState() {
@@ -2481,6 +2749,10 @@ class _NotifSettingsScreenState extends State<NotifSettingsScreen> {
     quietOn = p.getBool('notif_quiet_on') ?? false;
     qFrom = p.getInt('notif_qfrom') ?? 23;
     qTo = p.getInt('notif_qto') ?? 7;
+    wirdOn = p.getBool('wird_rem_on') ?? true;
+    weekOn = p.getBool('week_rem_on') ?? true;
+    wH = p.getInt('wird_rem_h') ?? 20;
+    wM = p.getInt('wird_rem_m') ?? 0;
   }
 
   // نحفظ الإعدادات ونعيد جدولة الإشعارات
@@ -2491,7 +2763,11 @@ class _NotifSettingsScreenState extends State<NotifSettingsScreen> {
     await p.setBool('notif_quiet_on', quietOn);
     await p.setInt('notif_qfrom', qFrom);
     await p.setInt('notif_qto', qTo);
-    if (on) await askNotifPermission();
+    await p.setBool('wird_rem_on', wirdOn);
+    await p.setBool('week_rem_on', weekOn);
+    await p.setInt('wird_rem_h', wH);
+    await p.setInt('wird_rem_m', wM);
+    if (on || wirdOn || weekOn) await askNotifPermission();
     await scheduleReminders();
   }
 
@@ -2583,6 +2859,46 @@ class _NotifSettingsScreenState extends State<NotifSettingsScreen> {
             ),
           ),
         ],
+        Card(
+          child: Column(children: [
+            SwitchListTile(
+              title: const Text('تذكير ورد اليوم', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+              subtitle: const Text('إشعار في الوقت اللي تحدده: «متبقي لك كذا من ورد اليوم»، ويختفي لو أتممت الورد'),
+              value: wirdOn,
+              onChanged: (v) {
+                setState(() => wirdOn = v);
+                apply();
+              },
+            ),
+            if (wirdOn)
+              ListTile(
+                leading: const Icon(Icons.access_time),
+                title: const Text('وقت التذكير'),
+                trailing: Text(timeLabel(wH, wM), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                onTap: () async {
+                  final t = await showTimePicker(context: context, initialTime: TimeOfDay(hour: wH, minute: wM));
+                  if (t != null && mounted) {
+                    setState(() {
+                      wH = t.hour;
+                      wM = t.minute;
+                    });
+                    apply();
+                  }
+                },
+              ),
+          ]),
+        ),
+        Card(
+          child: SwitchListTile(
+            title: const Text('ملخص الأسبوع (الجمعة)', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+            subtitle: const Text('كل جمعة الساعة 10 صباحاً: مجموع ورد أسبوعك، وتذكير بالإكثار من الصلاة على النبي ﷺ'),
+            value: weekOn,
+            onChanged: (v) {
+              setState(() => weekOn = v);
+              apply();
+            },
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.all(8),
           child: Text(
@@ -2592,6 +2908,87 @@ class _NotifSettingsScreenState extends State<NotifSettingsScreen> {
           ),
         ),
       ]),
+    );
+  }
+}
+
+
+// ---------- العلامات المرجعية ----------
+class Bm {
+  final int page;
+  final String note;
+  const Bm(this.page, this.note);
+}
+
+List<Bm> loadBookmarks(String id) {
+  final raw = Repo.prefs.getStringList('bm_$id') ?? <String>[];
+  final out = <Bm>[];
+  for (final s in raw) {
+    final i = s.indexOf('|');
+    final p = int.tryParse(i < 0 ? s : s.substring(0, i));
+    if (p == null) continue;
+    out.add(Bm(p, i < 0 ? '' : s.substring(i + 1)));
+  }
+  out.sort((a, b) => a.page.compareTo(b.page));
+  return out;
+}
+
+void saveBookmarks(String id, List<Bm> list) {
+  Repo.prefs.setStringList('bm_$id', list.map((b) => '${b.page}|${b.note.replaceAll('|', '/')}').toList());
+}
+
+class BookmarksScreen extends StatefulWidget {
+  const BookmarksScreen({super.key});
+  @override
+  State<BookmarksScreen> createState() => _BookmarksScreenState();
+}
+
+class _BookmarksScreenState extends State<BookmarksScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final hint = Theme.of(context).hintColor;
+    final a = accent(context);
+    final items = <Widget>[];
+    for (final b in Repo.books) {
+      final list = loadBookmarks(b.id);
+      if (list.isEmpty) continue;
+      items.add(Padding(
+        padding: const EdgeInsets.fromLTRB(6, 14, 6, 4),
+        child: Text(b.title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: a)),
+      ));
+      for (final m in list) {
+        items.add(Card(
+          child: ListTile(
+            leading: CircleAvatar(child: Text('${m.page}', style: const TextStyle(fontSize: 13))),
+            title: Text(m.note.isEmpty ? 'صفحة ${m.page}' : m.note),
+            subtitle: m.note.isEmpty ? null : Text('صفحة ${m.page}'),
+            onTap: () async {
+              await openPdf(context, b, m.page);
+              if (mounted) setState(() {});
+            },
+            trailing: IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () {
+                final l = loadBookmarks(b.id)..removeWhere((x) => x.page == m.page);
+                saveBookmarks(b.id, l);
+                setState(() {});
+              },
+            ),
+          ),
+        ));
+      }
+    }
+    return Scaffold(
+      appBar: AppBar(title: const Text('علاماتي المرجعية', style: TextStyle(fontSize: 18))),
+      body: items.isEmpty
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text('لسه ما فيش علامات.\nافتح أي كتاب واضغط على أيقونة العلامة فوق لتحفظ صفحة.',
+                    textAlign: TextAlign.center, style: TextStyle(color: hint, height: 1.8)),
+              ),
+            )
+          : ListView(padding: const EdgeInsets.all(12), children: items),
     );
   }
 }
