@@ -440,6 +440,11 @@ class _HomeTabState extends State<HomeTab> {
                 const AuthorPhoto(),
                 const SizedBox(height: 12),
                 Center(child: Text('شاعر رسول الله ﷺ', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: accent(context)))),
+                const SizedBox(height: 4),
+                Center(
+                  child: Text('الشيخ عبدالرحمن مصطفى الأزهري',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface)),
+                ),
                 const SizedBox(height: 14),
                 Center(
                   child: FilledButton.icon(
@@ -540,7 +545,7 @@ class BookSection {
   const BookSection(this.title, this.icon, this.ids);
 }
 
-const sectionSalat = BookSection('الصلاة على الحبيب محمد ﷺ', Icons.favorite, ['salawat', 'zad']);
+const sectionSalat = BookSection('الصلاة والسلام على رسول الله ﷺ', Icons.favorite, ['salawat', 'zad']);
 const sectionMadaeh = BookSection('المدائح النبوية', Icons.music_note, []);
 const sectionSera = BookSection('السيرة النبوية الشريفة', Icons.auto_stories, ['sera', 'alf']);
 const bookSections = [sectionSalat, sectionMadaeh, sectionSera];
