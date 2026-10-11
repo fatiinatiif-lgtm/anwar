@@ -145,6 +145,7 @@ class Repo {
     Book('sera', 'المنظومة اللطيفة في السيرة النبوية الشريفة'),
     Book('elmaw', 'المولد النبوي الشريف'),
     Book('alf', 'روضة العشاق في سيرة المتمم الأخلاق'),
+    Book('zad', 'زاد المسير في الصلاة على الحبيب البشير'),
   ];
   static final Map<String, List<Entry>> index = {};
   static late SharedPreferences prefs;
@@ -203,7 +204,7 @@ class Repo {
   }
 }
 
-const pageCounts = {'borda': 32, 'diaa': 216, 'elhama': 28, 'elmaw': 50, 'hekma': 177, 'menhatu': 135, 'mesk': 185, 'nabd': 11, 'raheeq': 240, 'salawat': 110, 'sera': 40, 'tagaliyat': 280, 'tohfa': 217, 'alf': 94};
+const pageCounts = {'borda': 32, 'diaa': 216, 'elhama': 28, 'elmaw': 50, 'hekma': 177, 'menhatu': 135, 'mesk': 185, 'nabd': 11, 'raheeq': 240, 'salawat': 110, 'sera': 40, 'tagaliyat': 280, 'tohfa': 217, 'alf': 94, 'zad': 46};
 
 Future<void> openPdf(BuildContext c, Book b, int page) {
   final max = pageCounts[b.id] ?? 1;
@@ -531,60 +532,151 @@ class AuthorPhoto extends StatelessWidget {
       );
 }
 
-// ---------- الكتب ----------
+// ---------- الكتب (3 أقسام) ----------
+class BookSection {
+  final String title;
+  final IconData icon;
+  final List<String> ids; // أرقام كتب القسم (لو فاضية: كل الكتب اللي مش في الأقسام التانية)
+  const BookSection(this.title, this.icon, this.ids);
+}
+
+const sectionSalat = BookSection('الصلاة على الحبيب محمد ﷺ', Icons.favorite, ['salawat', 'zad']);
+const sectionMadaeh = BookSection('المدائح النبوية', Icons.music_note, []);
+const sectionSera = BookSection('السيرة النبوية الشريفة', Icons.auto_stories, ['sera', 'alf']);
+const bookSections = [sectionSalat, sectionMadaeh, sectionSera];
+
+List<Book> sectionBooks(BookSection sec) {
+  if (sec.ids.isNotEmpty) {
+    return [for (final id in sec.ids) ...Repo.books.where((b) => b.id == id)];
+  }
+  final taken = <String>{...sectionSalat.ids, ...sectionSera.ids};
+  return Repo.books.where((b) => !taken.contains(b.id)).toList();
+}
+
+String booksCountText(int n) {
+  if (n == 1) return 'كتاب واحد';
+  if (n == 2) return 'كتابان';
+  if (n <= 10) return '$n كتب';
+  return '$n كتاباً';
+}
+
 class BooksTab extends StatelessWidget {
   const BooksTab({super.key});
   @override
-  Widget build(BuildContext context) => ValueListenableBuilder<int>(
-        valueListenable: readTick,
-        builder: (context, _, __) => ListView.builder(
-          padding: const EdgeInsets.all(10),
-          itemCount: Repo.books.length,
-          itemBuilder: (_, k) {
-            final b = Repo.books[k];
-            final last = Repo.lastPage(b.id);
-            final total = pageCounts[b.id] ?? 1;
-            final prog = last == null ? 0.0 : (last >= total ? 1.0 : last / total);
-            return Card(
-              child: InkWell(
-                onTap: () {
-                  if (Repo.index[b.id]!.isEmpty) {
-                    openPdf(context, b, Repo.lastPage(b.id) ?? 1);
-                  } else {
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => BookScreen(b)));
-                  }
-                },
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Row(children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(6),
-                      child: Image.asset(b.cover, width: 80, height: 112, fit: BoxFit.cover, cacheWidth: 240),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(b.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-                        if (last != null && last > 1) ...[
-                          const SizedBox(height: 10),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: LinearProgressIndicator(value: prog, minHeight: 6),
-                          ),
-                          const SizedBox(height: 4),
-                          Text('وصلت لصفحة $last من $total  •  ${(prog * 100).round()}%',
-                              style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
-                        ],
-                      ]),
-                    ),
-                    const Icon(Icons.chevron_left),
-                  ]),
-                ),
+  Widget build(BuildContext context) => ListView(
+        padding: const EdgeInsets.all(12),
+        children: [for (final sec in bookSections) SectionCard(sec)],
+      );
+}
+
+class SectionCard extends StatelessWidget {
+  final BookSection sec;
+  const SectionCard(this.sec, {super.key});
+  @override
+  Widget build(BuildContext context) {
+    final list = sectionBooks(sec);
+    final a = accent(context);
+    final hint = Theme.of(context).hintColor;
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 7),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SectionScreen(sec))),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              CircleAvatar(backgroundColor: a.withOpacity(.15), child: Icon(sec.icon, color: a)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(sec.title, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
+                  Text(booksCountText(list.length), style: TextStyle(color: hint)),
+                ]),
               ),
+              const Icon(Icons.chevron_left),
+            ]),
+            const SizedBox(height: 12),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final b in list.take(5))
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(5),
+                  child: Image.asset(b.cover, width: 46, height: 64, fit: BoxFit.cover, cacheWidth: 140),
+                ),
+            ]),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+class SectionScreen extends StatelessWidget {
+  final BookSection sec;
+  const SectionScreen(this.sec, {super.key});
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: Text(sec.title, style: const TextStyle(fontSize: 17))),
+        body: ValueListenableBuilder<int>(
+          valueListenable: readTick,
+          builder: (context, _, __) {
+            final list = sectionBooks(sec);
+            return ListView.builder(
+              padding: const EdgeInsets.all(10),
+              itemCount: list.length,
+              itemBuilder: (_, k) => BookTile(list[k]),
             );
           },
         ),
       );
+}
+
+class BookTile extends StatelessWidget {
+  final Book b;
+  const BookTile(this.b, {super.key});
+  @override
+  Widget build(BuildContext context) {
+    final last = Repo.lastPage(b.id);
+    final total = pageCounts[b.id] ?? 1;
+    final prog = last == null ? 0.0 : (last >= total ? 1.0 : last / total);
+    return Card(
+      child: InkWell(
+        onTap: () {
+          if (Repo.index[b.id]!.isEmpty) {
+            openPdf(context, b, Repo.lastPage(b.id) ?? 1);
+          } else {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => BookScreen(b)));
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Row(children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: Image.asset(b.cover, width: 80, height: 112, fit: BoxFit.cover, cacheWidth: 240),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(b.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                if (last != null && last > 1) ...[
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: LinearProgressIndicator(value: prog, minHeight: 6),
+                  ),
+                  const SizedBox(height: 4),
+                  Text('وصلت لصفحة $last من $total  •  ${(prog * 100).round()}%',
+                      style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+                ],
+              ]),
+            ),
+            const Icon(Icons.chevron_left),
+          ]),
+        ),
+      ),
+    );
+  }
 }
 
 class BookScreen extends StatefulWidget {
