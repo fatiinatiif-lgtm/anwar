@@ -111,6 +111,9 @@ class Book {
   String get cover => 'assets/covers/$id.jpg';
 }
 
+// كتيّب التعريف بمنهج الصلاة (بيتفتح من تبويب منهج الصلاة، مش من قايمة الكتب)
+const manhajBook = Book('manhaj', 'تعرف على منهج الصلاة');
+
 class Entry {
   final String book, title;
   final int page;
@@ -157,7 +160,7 @@ class Repo {
   static int? lastPage(String id) => prefs.getInt('last_$id');
   static void saveLast(String id, int p) {
     prefs.setInt('last_$id', p);
-    prefs.setString('last_book', id);
+    if (books.any((b) => b.id == id)) prefs.setString('last_book', id);
     readTick.value++;
   }
 
@@ -204,7 +207,7 @@ class Repo {
   }
 }
 
-const pageCounts = {'borda': 32, 'diaa': 216, 'elhama': 28, 'elmaw': 50, 'hekma': 177, 'menhatu': 135, 'mesk': 185, 'nabd': 11, 'raheeq': 240, 'salawat': 110, 'sera': 40, 'tagaliyat': 280, 'tohfa': 217, 'alf': 94, 'zad': 46};
+const pageCounts = {'borda': 32, 'diaa': 216, 'elhama': 28, 'elmaw': 50, 'hekma': 177, 'menhatu': 135, 'mesk': 185, 'nabd': 11, 'raheeq': 240, 'salawat': 110, 'sera': 40, 'tagaliyat': 280, 'tohfa': 217, 'alf': 120, 'manhaj': 16, 'zad': 46};
 
 Future<void> openPdf(BuildContext c, Book b, int page) {
   final max = pageCounts[b.id] ?? 1;
@@ -787,7 +790,7 @@ class _PdfScreenState extends State<PdfScreen> {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     current = widget.page;
     pageNo = ValueNotifier<int>(widget.page);
-    Repo.prefs.setString('last_book', widget.book.id);
+    if (Repo.books.any((b) => b.id == widget.book.id)) Repo.prefs.setString('last_book', widget.book.id);
     if (Repo.lastPage(widget.book.id) == null) Repo.prefs.setInt('last_${widget.book.id}', widget.page);
     WidgetsBinding.instance.addPostFrameCallback((_) => readTick.value++);
     positions.itemPositions.addListener(onPositions);
@@ -1321,6 +1324,17 @@ class _PrayerTabState extends State<PrayerTab> {
         ),
       ),
       const SizedBox(height: 8),
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.all(16), side: BorderSide(color: sec(context), width: 1.8)),
+          onPressed: () => openPdf(context, manhajBook, 1),
+          icon: Icon(Icons.menu_book, color: accent(context)),
+          label: Text('تعرف على منهج الصلاة',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: accent(context))),
+        ),
+      ),
       for (var l = 1; l <= 5; l++)
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 5),
