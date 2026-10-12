@@ -2372,6 +2372,9 @@ class _StatsScreenState extends State<StatsScreen> {
     for (var i = 0; i < 10; i++) {
       sebha += pr.getInt('sebha_c$i') ?? 0;
     }
+    // اللي اتعدّ في السبحة وكان محسوب من الورد اليومي بيتحسب مرة واحدة بس (في المنهج)
+    final sebhaInWird = pr.getInt('sebha_in_wird') ?? 0;
+    final sebhaOutside = sebha > sebhaInWird ? sebha - sebhaInWird : 0;
     final streak = wirdStreak();
     final best = pr.getInt('wird_best') ?? streak;
     final a = accent(context);
@@ -2394,11 +2397,11 @@ class _StatsScreenState extends State<StatsScreen> {
             child: Column(children: [
               Text('مجموع صلاتك على الحبيب ﷺ', style: TextStyle(color: hint)),
               const SizedBox(height: 4),
-              Text(fmtNum(data.total + sebha), style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: a)),
+              Text(fmtNum(data.total + sebhaOutside), style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: a)),
               const SizedBox(height: 10),
               Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
                 stat('منهج الصلاة', fmtNum(data.total), a, hint),
-                stat('السبحة', fmtNum(sebha), a, hint),
+                stat('السبحة (خارج الورد)', fmtNum(sebhaOutside), a, hint),
               ]),
               const Divider(height: 24),
               Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
@@ -3102,4 +3105,66 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           : ListView(padding: const EdgeInsets.all(12), children: items),
     );
   }
+}
+
+
+// ---------- ربط السبحة بورد اليوم ----------
+const wirdPortionNames = ['بعد الفجر', 'بعد الظهر', 'بعد العصر', 'بعد المغرب'];
+
+class WirdAddResult {
+  final bool dayCompleted; // ورد النهارده خلص بالعدّة دي
+  final int? portionFinished; // رقم الدفعة اللي خلصت (لو فيه)
+  const WirdAddResult(this.dayCompleted, this.portionFinished);
+}
+
+// بيضيف n صلاة لورد النهارده في المستوى المختار (بنفس تخزين شاشة ورد اليوم)
+WirdAddResult wirdAddToday(int level, int n) {
+  final p = Repo.prefs;
+  final now = DateTime.now();
+  final goal = level * 2000;
+  final pg = goal ~/ 4;
+  final pkey = 'pw${level}_${now.year}_${now.month}_${now.day}';
+  final dkey = 'p${level}_${now.year}_${now.month}';
+  final parts = <int>[0, 0, 0, 0];
+  final raw = p.getString(pkey);
+  if (raw != null) {
+    final xs = raw.split(',');
+    for (var i = 0; i < 4 && i < xs.length; i++) {
+      parts[i] = int.tryParse(xs[i]) ?? 0;
+    }
+  }
+  int total() => parts.fold<int>(0, (a, b) => a + b);
+  int nextOpen() {
+    for (var i = 0; i < 4; i++) {
+      if (parts[i] < pg) return i;
+    }
+    return -1;
+  }
+
+  final doneSet = (p.getStringList(dkey) ?? <String>[]).map(int.parse).toSet();
+  final wasDone = total() >= goal || doneSet.contains(now.day);
+  final before = List<int>.from(parts);
+  var left = n;
+  var i = nextOpen();
+  while (left > 0 && i != -1) {
+    final room = pg - parts[i];
+    final take = left < room ? left : room;
+    parts[i] += take;
+    left -= take;
+    if (parts[i] >= pg) i = nextOpen();
+  }
+  if (left > 0) parts[3] += left; // كل الدفعات خلصت: الزيادة تتحسب إضافية
+  int? finished;
+  for (var k = 0; k < 4; k++) {
+    if (before[k] < pg && parts[k] >= pg) finished = k;
+  }
+  p.setString(pkey, parts.join(','));
+  var dayDone = false;
+  if (!wasDone && total() >= goal) {
+    doneSet.add(now.day);
+    p.setStringList(dkey, doneSet.map((e) => '$e').toList());
+    dayDone = true;
+  }
+  wirdTick.value++;
+  return WirdAddResult(dayDone, finished);
 }

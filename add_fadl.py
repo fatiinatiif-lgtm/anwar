@@ -152,6 +152,8 @@ NEW_SEBHA = """class SebhaScreen extends StatefulWidget {
 class _SebhaScreenState extends State<SebhaScreen> {
   late int sel, target, done, goals;
   late List<int> counts;
+  bool linked = false; // هل السبحة محسوبة من ورد اليوم؟
+  int wl = 0; // مستوى الورد المختار
 
   @override
   void initState() {
@@ -163,6 +165,30 @@ class _SebhaScreenState extends State<SebhaScreen> {
     done = p.getInt('sebha_done') ?? 0;
     goals = p.getInt('sebha_goals') ?? 0;
     counts = List.generate(sebhaFormulas.length, (i) => p.getInt('sebha_c$i') ?? 0);
+    wl = p.getInt('wird_level') ?? 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) => askLink());
+  }
+
+  // أول ما تفتح السبحة: نسأل هل العدّ ده من ورد اليوم؟
+  Future<void> askLink() async {
+    if (!mounted || wl < 1 || wl > 5) return;
+    final yes = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('هل هذه الصلوات من ورد اليوم؟',
+            textAlign: TextAlign.center, style: TextStyle(fontSize: 21, fontWeight: FontWeight.bold, height: 1.7)),
+        content: Text('لو اخترت «نعم»، كل ما تعدّه يتحسب كمان في ورد اليوم (المستوى ${levelNames[wl - 1]}).',
+            textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, height: 1.7)),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('لا، سبحة حرة', style: TextStyle(fontSize: 16))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('نعم، من ورد اليوم', style: TextStyle(fontSize: 16))),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    setState(() => linked = yes ?? false);
   }
 
   int get count => counts[sel];
@@ -188,7 +214,28 @@ class _SebhaScreenState extends State<SebhaScreen> {
       }
     });
     save();
-    if (finished) {
+    // لو السبحة مربوطة بالورد: نحسب الصلاة كمان في ورد النهارده
+    WirdAddResult? wr;
+    if (linked && wl >= 1 && wl <= 5) {
+      wr = wirdAddToday(wl, 1);
+      Repo.prefs.setInt('sebha_in_wird', (Repo.prefs.getInt('sebha_in_wird') ?? 0) + 1);
+      setState(() {});
+    }
+    if (wr != null && wr.dayCompleted) {
+      HapticFeedback.heavyImpact();
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('هنيئا لكم يا أحباب رسول الله ﷺ',
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, height: 1.7)),
+          content: Text('أتممتم ورد اليوم: ${fmtNum(wl * 2000)} صلاة',
+              textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, height: 1.8)),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('تم', style: TextStyle(fontSize: 17)))],
+        ),
+      );
+      showHearts(context);
+    } else if (finished) {
       HapticFeedback.heavyImpact();
       showDialog<void>(
         context: context,
@@ -200,6 +247,16 @@ class _SebhaScreenState extends State<SebhaScreen> {
         ),
       );
       showHearts(context);
+    } else if (wr != null && wr.portionFinished != null) {
+      HapticFeedback.mediumImpact();
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text('أتممت دفعة ${wirdPortionNames[wr.portionFinished!]} من ورد اليوم',
+              textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, color: Colors.white)),
+          backgroundColor: pri(context),
+          duration: const Duration(seconds: 2),
+        ));
     }
   }
 
@@ -296,6 +353,27 @@ class _SebhaScreenState extends State<SebhaScreen> {
                 ]),
               ),
             ),
+            if (wl >= 1 && wl <= 5)
+              Card(
+                margin: const EdgeInsets.only(top: 6),
+                child: SwitchListTile(
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                  title: Text('من ورد اليوم (المستوى ${levelNames[wl - 1]})',
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                  subtitle: Text(linked
+                      ? 'اليوم: ${fmtNum(wirdCountFor(wl, DateTime.now()))} / ${fmtNum(wl * 2000)} صلاة'
+                      : 'مش محسوبة في ورد اليوم'),
+                  value: linked,
+                  onChanged: (v) => setState(() => linked = v),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text('لربط السبحة بورد اليوم، اختر مستواك أولاً من منهج الصلاة',
+                    textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+              ),
             const SizedBox(height: 8),
             Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
               stat('الأهداف المكتملة', '$goals', a),
