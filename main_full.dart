@@ -2369,7 +2369,7 @@ class _StatsScreenState extends State<StatsScreen> {
     final data = loadWirdData();
     final pr = Repo.prefs;
     var sebha = pr.getInt('sebha_done') ?? 0;
-    for (var i = 0; i < 10; i++) {
+    for (var i = 0; i < sebhaFormulas.length; i++) {
       sebha += pr.getInt('sebha_c$i') ?? 0;
     }
     final streak = wirdStreak();
