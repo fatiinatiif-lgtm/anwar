@@ -281,7 +281,7 @@ class _SebhaScreenState extends State<SebhaScreen> {
             itemBuilder: (_, i) => ListTile(
               leading: CircleAvatar(radius: 15, child: Text('${i + 1}', style: const TextStyle(fontSize: 14))),
               title: Text(sebhaFormulas[i],
-                  style: TextStyle(fontSize: 17, height: 1.7, fontWeight: i == sel ? FontWeight.bold : FontWeight.normal)),
+                  style: TextStyle(fontSize: 17, height: 1.7, fontWeight: FontWeight.bold)),
               trailing: i == sel ? Icon(Icons.check_circle, color: accent(ctx)) : Text('${counts[i]}'),
               onTap: () {
                 setState(() => sel = i);
@@ -316,7 +316,7 @@ class _SebhaScreenState extends State<SebhaScreen> {
                 child: Column(children: [
                   Text(sebhaFormulas[sel],
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 18, height: 1.8, fontWeight: FontWeight.w600, color: a)),
+                      style: TextStyle(fontSize: 18, height: 1.8, fontWeight: FontWeight.bold, color: a)),
                   TextButton.icon(onPressed: pick, icon: const Icon(Icons.list), label: const Text('اختيار صيغة أخرى')),
                 ]),
               ),
