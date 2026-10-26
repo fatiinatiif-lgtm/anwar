@@ -4241,10 +4241,12 @@ class AnwarMenuScreen extends StatelessWidget {
                     ),
                   ),
                 );
-              } else if (k == 3) {
+              } else if (k == 3 || k == 4) {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => PoemScreen(title: titles[3], file: 'assets/texts/poem1.txt')),
+                  MaterialPageRoute(
+                    builder: (_) => PoemScreen(title: titles[k], file: k == 3 ? 'assets/texts/poem1.txt' : 'assets/texts/poem2.txt'),
+                  ),
                 );
               } else {
                 ScaffoldMessenger.of(context)
