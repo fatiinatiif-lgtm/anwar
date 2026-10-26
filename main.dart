@@ -3974,6 +3974,188 @@ String kashidaJustify(String text, TextStyle st, double width, TextScaler sc) {
   return text;
 }
 
+// ---------- القصائد: شعر عمودي (صدر فوق وعجز تحته) بمدّ الحروف ----------
+// زي _stretchLine بس بحدّ أعلى أكبر لمدّ الحروف، عشان الأشطر القصيرة تملا العرض
+String _stretchCap(String line, int n, int cap) {
+  if (n <= 0) return line;
+  final words = line.split(' ');
+  final spots = [for (final w in words) _kashidaSpots(w)];
+  final total = spots.fold<int>(0, (a, s) => a + s.length);
+  if (total == 0) return line;
+  if (n > total * cap) n = total * cap;
+  final add = [for (final s in spots) List<int>.filled(s.length, 0)];
+  var left = n;
+  var pass = 0;
+  while (left > 0 && pass < 1000) {
+    for (var w = 0; w < words.length && left > 0; w++) {
+      final s = spots[w];
+      if (s.isEmpty) continue;
+      add[w][(pass + w) % s.length]++;
+      left--;
+    }
+    pass++;
+  }
+  final out = <String>[];
+  for (var w = 0; w < words.length; w++) {
+    final word = words[w];
+    final sb = StringBuffer();
+    var last = 0;
+    for (var k = 0; k < spots[w].length; k++) {
+      sb.write(word.substring(last, spots[w][k]));
+      sb.write('\u0640' * add[w][k]);
+      last = spots[w][k];
+    }
+    sb.write(word.substring(last));
+    out.add(sb.toString());
+  }
+  return out.join(' ');
+}
+
+// بيمدّ الشطر بالكشيدة لحد ما عرضه يبقى أقرب ما يمكن للعرض المطلوب
+String _fitLine(String line, TextStyle st, TextScaler sc, double width) {
+  final base = _textW(line, st, sc);
+  final tat = _textW('\u0640', st, sc);
+  if (tat <= 0 || base >= width) return line;
+  var n = ((width - base) / tat).floor();
+  var best = line;
+  var bestDiff = width - base;
+  for (var it = 0; it < 6; it++) {
+    final s = _stretchCap(line, n, 12);
+    final diff = width - _textW(s, st, sc);
+    if (diff.abs() < bestDiff.abs()) {
+      bestDiff = diff;
+      best = s;
+    }
+    if (diff.abs() <= tat * 0.5) break;
+    final step = (diff / tat).round();
+    if (step == 0) break;
+    n += step;
+    if (n < 0) n = 0;
+  }
+  return best;
+}
+
+class _PoemLayout {
+  final double fs, hw;
+  final List<String> sadr, ajz;
+  _PoemLayout(this.fs, this.hw, this.sadr, this.ajz);
+}
+
+// صفحة قصيدة: فاضية من العداد وأي أزرار، كل بيت سطرين (الصدر من اليمين والعجز تحته مزاح 8 مسافات لليسار)
+class PoemScreen extends StatefulWidget {
+  final String title, file;
+  const PoemScreen({super.key, required this.title, required this.file});
+  @override
+  State<PoemScreen> createState() => _PoemScreenState();
+}
+
+class _PoemScreenState extends State<PoemScreen> {
+  List<String> lines = const [];
+  bool loading = true;
+  _PoemLayout? _lay;
+  String _layKey = '';
+
+  @override
+  void initState() {
+    super.initState();
+    rootBundle.loadString(widget.file).then((raw) {
+      final l = <String>[];
+      for (final x in raw.replaceAll('\uFEFF', '').split(RegExp(r'\r?\n'))) {
+        final t = x.replaceAll(RegExp(r'\s+'), ' ').trim();
+        if (t.isEmpty || t.startsWith('((')) continue;
+        l.add(t);
+      }
+      if (mounted) {
+        setState(() {
+          lines = l;
+          loading = false;
+        });
+      }
+    }).catchError((_) {
+      if (mounted) setState(() => loading = false);
+    });
+  }
+
+  _PoemLayout layoutFor(BuildContext ctx, double w) {
+    final sc = MediaQuery.textScalerOf(ctx);
+    final key = '${w.round()}|${sc.scale(10)}|${lines.length}';
+    if (_lay != null && _layKey == key) return _lay!;
+    final base = DefaultTextStyle.of(ctx).style.merge(const TextStyle(fontWeight: FontWeight.bold, height: 1.9));
+    TextStyle st(double f) => base.copyWith(fontSize: f);
+    final sadr = <String>[], ajz = <String>[];
+    for (var i = 0; i < lines.length; i += 2) {
+      sadr.add(lines[i]);
+      if (i + 1 < lines.length) ajz.add(lines[i + 1]);
+    }
+    // حجم الخط: أكبر حجم يخلّي أطول شطر يتّسع في سطر واحد مع مسافة الـ 8 مسافات
+    final probe = st(20);
+    var m = 0.0;
+    for (final h in lines) {
+      final x = _textW(h, probe, sc);
+      if (x > m) m = x;
+    }
+    final sp = _textW('د د', probe, sc) - _textW('دد', probe, sc);
+    var fs = 20 * (w * 0.985) / (m + 8 * sp);
+    fs = fs.clamp(12.0, 26.0).toDouble();
+    final s = st(fs);
+    final indent = 8 * (_textW('د د', s, sc) - _textW('دد', s, sc));
+    final hw = w - indent;
+    _lay = _PoemLayout(
+      fs,
+      hw,
+      [for (final h in sadr) _fitLine(h, s, sc, hw)],
+      [for (final h in ajz) _fitLine(h, s, sc, hw)],
+    );
+    _layKey = key;
+    return _lay!;
+  }
+
+  Widget hemi(String t, TextStyle st, double hw) => SizedBox(
+        width: hw,
+        child: FittedBox(
+          fit: BoxFit.fitWidth,
+          child: Text(t, textDirection: TextDirection.rtl, softWrap: false, maxLines: 1, style: st),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(title: Text(widget.title, style: const TextStyle(fontSize: 17))),
+        body: SafeArea(
+          child: loading
+              ? const Center(child: CircularProgressIndicator())
+              : lines.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text('لم يتم العثور على ملف النص (${widget.file})', textAlign: TextAlign.center),
+                      ),
+                    )
+                  : LayoutBuilder(builder: (ctx, bc) {
+                      final lay = layoutFor(ctx, bc.maxWidth - 32);
+                      final st = DefaultTextStyle.of(ctx).style.merge(const TextStyle(fontWeight: FontWeight.bold, height: 1.9)).copyWith(fontSize: lay.fs);
+                      return ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(16, 18, 16, 28),
+                        itemCount: lay.sadr.length,
+                        itemBuilder: (_, i) => Padding(
+                          padding: EdgeInsets.only(bottom: lay.fs * 1.9),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                            Align(alignment: AlignmentDirectional.centerStart, child: hemi(lay.sadr[i], st, lay.hw)),
+                            if (i < lay.ajz.length)
+                              Align(alignment: AlignmentDirectional.centerEnd, child: hemi(lay.ajz[i], st, lay.hw)),
+                          ]),
+                        ),
+                      );
+                    }),
+        ),
+      ),
+    );
+  }
+}
+
 // ----- بطاقة الكتاب داخل قسم الصلاة والسلام -----
 class AnwarTile extends StatelessWidget {
   const AnwarTile({super.key});
@@ -4058,6 +4240,11 @@ class AnwarMenuScreen extends StatelessWidget {
                       emptyMsg: 'لم يتم العثور على ملف النص (munajat.txt داخل assets/texts)',
                     ),
                   ),
+                );
+              } else if (k == 3) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => PoemScreen(title: titles[3], file: 'assets/texts/poem1.txt')),
                 );
               } else {
                 ScaffoldMessenger.of(context)
