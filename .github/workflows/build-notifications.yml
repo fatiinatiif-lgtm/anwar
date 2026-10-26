@@ -9,12 +9,12 @@ jobs:
       - name: Apply updates
         run: |
           cp hekma.txt elhama.txt sera.txt anwar_library/assets/index/
-          cp about_us.txt fadl_salah.txt anwar_library/assets/texts/
+          cp about_us.txt fadl_salah.txt anwar_1.txt anwar_2.txt anwar_3.txt anwar_library/assets/texts/
           cp newbooks/*.pdf anwar_library/assets/books/ || true
           cp newbooks/*.jpg anwar_library/assets/covers/ || true
           cp newbooks/*.txt anwar_library/assets/index/ || true
           cd anwar_library
-          cp ../main_full.dart lib/main.dart
+          cp ../main.dart lib/main.dart
           mkdir -p assets/fonts
           curl -fL -o assets/fonts/ArefRuqaa-Bold.ttf https://raw.githubusercontent.com/google/fonts/main/ofl/arefruqaa/ArefRuqaa-Bold.ttf || rm -f assets/fonts/ArefRuqaa-Bold.ttf
           python3 ../add_fadl.py lib/main.dart
