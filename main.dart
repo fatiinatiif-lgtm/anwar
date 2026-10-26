@@ -2526,6 +2526,7 @@ class SebhaScreen extends StatefulWidget {
 class _SebhaScreenState extends State<SebhaScreen> {
   late int sel, target, done, goals;
   late List<int> counts;
+  final chipsCtrl = ScrollController();
 
   @override
   void initState() {
@@ -2537,6 +2538,19 @@ class _SebhaScreenState extends State<SebhaScreen> {
     done = p.getInt('sebha_done') ?? 0;
     goals = p.getInt('sebha_goals') ?? 0;
     counts = List.generate(sebhaFormulas.length, (i) => p.getInt('sebha_c$i') ?? 0);
+    // نوصّل صف الأرقام للعدد المختار عشان يبان من أول ما الشاشة تفتح
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !chipsCtrl.hasClients) return;
+      final i = sebhaTargets.indexOf(target);
+      if (i < 0) return;
+      chipsCtrl.jumpTo((i * 84.0 - 60).clamp(0.0, chipsCtrl.position.maxScrollExtent).toDouble());
+    });
+  }
+
+  @override
+  void dispose() {
+    chipsCtrl.dispose();
+    super.dispose();
   }
 
   int get count => counts[sel];
@@ -2660,15 +2674,48 @@ class _SebhaScreenState extends State<SebhaScreen> {
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
           child: Column(children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 2),
-                child: Column(children: [
-                  Text(sebhaFormulas[sel],
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 18, height: 1.8, fontWeight: FontWeight.bold, color: a)),
-                  TextButton.icon(onPressed: pick, icon: const Icon(Icons.list), label: const Text('اختيار صيغة أخرى')),
-                ]),
+            // المحتوى فوق مش بيتسحب، والعدّاد تحت ثابت دايماً
+            Expanded(
+              child: Column(children: [
+            Flexible(
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 2),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    // الصيغة كلها باينة من غير سحب: لو طويلة الخط بيصغّر تلقائي على قد المساحة المتاحة
+                    Flexible(
+                      child: LayoutBuilder(builder: (ctx, bc) {
+                        final scaler = MediaQuery.textScalerOf(ctx);
+                        final text = sebhaFormulas[sel];
+                        final dts = DefaultTextStyle.of(ctx).style;
+                        double heightAt(double f) {
+                          final tp = TextPainter(
+                            text: TextSpan(text: text, style: dts.merge(TextStyle(fontSize: f, height: 1.7, fontWeight: FontWeight.bold))),
+                            textDirection: TextDirection.rtl,
+                            textAlign: TextAlign.center,
+                            textScaler: scaler,
+                          )..layout(maxWidth: bc.maxWidth);
+                          return tp.height;
+                        }
+
+                        var fs = 18.0;
+                        while (fs > 10 && heightAt(fs) > bc.maxHeight) {
+                          fs -= 0.5;
+                        }
+                        return FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: SizedBox(
+                            width: bc.maxWidth,
+                            child: Text(text,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: fs, height: 1.7, fontWeight: FontWeight.bold, color: a)),
+                          ),
+                        );
+                      }),
+                    ),
+                    TextButton.icon(onPressed: pick, icon: const Icon(Icons.list), label: const Text('اختيار صيغة أخرى')),
+                  ]),
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -2679,17 +2726,31 @@ class _SebhaScreenState extends State<SebhaScreen> {
             const SizedBox(height: 10),
             Text('العدد المستهدف', style: TextStyle(color: Theme.of(context).hintColor)),
             const SizedBox(height: 4),
-            Wrap(alignment: WrapAlignment.center, spacing: 8, children: [
-              for (final t in sebhaTargets)
-                ChoiceChip(
-                  label: Text('$t'),
-                  selected: target == t,
-                  onSelected: (_) {
-                    setState(() => target = t);
-                    Repo.prefs.setInt('sebha_target', t);
-                  },
-                ),
-            ]),
+            // الأرقام كلها في صف واحد، وبتسحبيه بإيدك يمين وشمال عشان تختاري العدد
+            SizedBox(
+              height: 48,
+              child: ListView(
+                controller: chipsCtrl,
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                children: [
+                  for (final t in sebhaTargets)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Center(
+                        child: ChoiceChip(
+                          label: Text('$t', style: const TextStyle(fontSize: 16)),
+                          selected: target == t,
+                          onSelected: (_) {
+                            setState(() => target = t);
+                            Repo.prefs.setInt('sebha_target', t);
+                          },
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
             const SizedBox(height: 10),
             Row(children: [
               Expanded(child: OutlinedButton.icon(onPressed: confirmReset, icon: const Icon(Icons.refresh), label: const Text('البداية من جديد'))),
@@ -2717,11 +2778,13 @@ class _SebhaScreenState extends State<SebhaScreen> {
                 label: const Text('حذف الأهداف السابقة'),
               ),
             ),
-            Expanded(
-              child: LayoutBuilder(builder: (_, bc) {
-                final room = bc.maxHeight - 8;
-                final d = room < 230 ? (room < 120 ? 120.0 : room) : 230.0;
-                return Center(
+              ]),
+            ),
+            LayoutBuilder(builder: (ctx, _) {
+              final d = (MediaQuery.of(ctx).size.height * 0.21).clamp(135.0, 200.0).toDouble();
+              return Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 4),
+                child: Center(
                   child: GestureDetector(
                     onTap: tap,
                     child: SizedBox(
@@ -2743,9 +2806,9 @@ class _SebhaScreenState extends State<SebhaScreen> {
                       ]),
                     ),
                   ),
-                );
-              }),
-            ),
+                ),
+              );
+            }),
           ]),
         ),
       ),
