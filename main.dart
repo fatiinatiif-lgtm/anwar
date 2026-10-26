@@ -3817,6 +3817,48 @@ Future<List<AnwarItem>> loadMubarakat() async {
   return items;
 }
 
+// ---------- مناجاة الأشواق (5 صيغ في الصندوق) ----------
+const munajatFile = 'assets/texts/munajat.txt';
+const _munPerBox = 5;
+List<AnwarItem>? _munCache;
+
+// السطر الأول عنوان (بيتخطّى). فقرة الافتتاح (اللهم...) وفقرة الختام (صلى الله عليك...) كل واحدة في صندوق لوحدها،
+// وباقي الأسطر كل سطر صيغة وبيتقسّموا مجموعات من 5 صيغ في الصندوق
+Future<List<AnwarItem>> loadMunajat() async {
+  if (_munCache != null) return _munCache!;
+  String raw;
+  try {
+    raw = await rootBundle.loadString(munajatFile);
+  } catch (_) {
+    return const [];
+  }
+  final items = <AnwarItem>[];
+  var group = <String>[];
+  void flush() {
+    for (var i = 0; i < group.length; i += _munPerBox) {
+      final part = group.sublist(i, dmath.min(i + _munPerBox, group.length));
+      items.add(AnwarItem(null, part.first, part));
+    }
+    group = <String>[];
+  }
+
+  for (final line in raw.replaceAll('\uFEFF', '').split(RegExp(r'\r?\n'))) {
+    final t = line.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (t.isEmpty || t.startsWith('((')) continue;
+    final n = norm(t);
+    if (n.startsWith('مناجاه')) continue;
+    if (n.startsWith('اللهم') || n.startsWith('صلي الله عليك')) {
+      flush();
+      items.add(AnwarItem(null, t, [t]));
+      continue;
+    }
+    group.add(t);
+  }
+  flush();
+  if (items.isNotEmpty) _munCache = items;
+  return items;
+}
+
 // ----- مدّ الحروف (كشيدة) بدل فراغات بين الكلمات -----
 const _kDual = 'بتثجحخسشصضطظعغفقكلمنهيئ';
 bool _isMark(int c) => (c >= 0x064B && c <= 0x065F) || c == 0x0670;
@@ -4002,6 +4044,18 @@ class AnwarMenuScreen extends StatelessWidget {
                       prefsKey: 'mub',
                       loader: loadMubarakat,
                       emptyMsg: 'لم يتم العثور على ملف النص (mubarakat.txt داخل assets/texts)',
+                    ),
+                  ),
+                );
+              } else if (k == 2) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AnwarScreen(
+                      title: titles[2],
+                      prefsKey: 'munajat',
+                      loader: loadMunajat,
+                      emptyMsg: 'لم يتم العثور على ملف النص (munajat.txt داخل assets/texts)',
                     ),
                   ),
                 );
