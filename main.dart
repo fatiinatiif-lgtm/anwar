@@ -382,24 +382,59 @@ class _ShellState extends State<Shell> {
         body: SafeArea(
           child: IndexedStack(index: i, children: const [HomeTab(), BooksTab(), PrayerTab(), FavsTab(), MoreTab()]),
         ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: i,
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: accent(context),
-          unselectedItemColor: Colors.grey,
-          iconSize: 28,
-          selectedFontSize: 12,
-          unselectedFontSize: 12,
-          onTap: (v) => shellIndex.value = v,
-          items: const [
-            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.symmetric(vertical: 5), child: Icon(Icons.home)), label: 'الرئيسية'),
-            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.symmetric(vertical: 5), child: Icon(Icons.menu_book)), label: 'الكتب'),
-            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.symmetric(vertical: 5), child: Icon(Icons.event_available)), label: 'منهج الصلاة'),
-            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.symmetric(vertical: 5), child: Icon(Icons.star)), label: 'المفضلة'),
-            BottomNavigationBarItem(icon: Padding(padding: EdgeInsets.symmetric(vertical: 5), child: Icon(Icons.more_horiz)), label: 'المزيد'),
-          ],
+        bottomNavigationBar: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark(context) ? Theme.of(context).cardColor : Colors.white,
+                borderRadius: BorderRadius.circular(26),
+                border: Border.all(color: accent(context).withOpacity(.25)),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(.18), blurRadius: 16, offset: const Offset(0, 4))],
+              ),
+              child: Row(
+                children: [
+                  for (var k = 0; k < _navIcons.length; k++)
+                    Expanded(child: _navItem(context, k)),
+                ],
+              ),
+            ),
+          ),
         ),
       );
+
+  static const _navIcons = [Icons.home, Icons.menu_book, Icons.event_available, Icons.star, Icons.more_horiz];
+  static const _navLabels = ['الرئيسية', 'الكتب', 'منهج الصلاة', 'المفضلة', 'المزيد'];
+
+  Widget _navItem(BuildContext context, int k) {
+    final sel = i == k;
+    final ac = accent(context);
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () => shellIndex.value = k,
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          width: 46,
+          height: 40,
+          decoration: BoxDecoration(
+            color: sel ? ac : ac.withOpacity(.14),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Icon(_navIcons[k], size: 24, color: sel ? (isDark(context) ? Colors.black87 : Colors.white) : ac),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _navLabels[k],
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 11, fontWeight: sel ? FontWeight.bold : FontWeight.normal, color: sel ? ac : Colors.grey),
+        ),
+      ]),
+    );
+  }
 }
 
 // ---------- الرئيسية ----------
@@ -1855,17 +1890,13 @@ class _WirdDayScreenState extends State<WirdDayScreen> {
                       width: dd,
                       height: dd,
                       child: Stack(alignment: Alignment.center, children: [
-                        SizedBox(
-                          width: dd,
-                          height: dd,
-                          child: CircularProgressIndicator(value: prog, strokeWidth: 10, color: a, backgroundColor: a.withOpacity(.15)),
-                        ),
+                        SquareProgress(size: dd, value: prog, color: a),
                         Container(
                           width: dd * .83,
                           height: dd * .83,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
+                            borderRadius: BorderRadius.circular(dd * .15),
                             color: pri(context),
                             boxShadow: [BoxShadow(color: a.withOpacity(.4), blurRadius: 20, spreadRadius: 2)],
                           ),
@@ -1880,7 +1911,7 @@ class _WirdDayScreenState extends State<WirdDayScreen> {
                 );
               }),
             ),
-            Text('اضغط على الدائرة للعدّ، أو أضف عدداً دفعة واحدة', style: TextStyle(fontSize: 13, color: hint)),
+            Text('اضغط على المربع للعدّ، أو أضف عدداً دفعة واحدة', style: TextStyle(fontSize: 13, color: hint)),
           ]),
         ),
       ),
@@ -2307,17 +2338,13 @@ class _SebhaScreenState extends State<SebhaScreen> {
                       width: d,
                       height: d,
                       child: Stack(alignment: Alignment.center, children: [
-                        SizedBox(
-                          width: d,
-                          height: d,
-                          child: CircularProgressIndicator(value: prog, strokeWidth: 10, color: a, backgroundColor: a.withOpacity(.15)),
-                        ),
+                        SquareProgress(size: d, value: prog, color: a),
                         Container(
                           width: d * .83,
                           height: d * .83,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            shape: BoxShape.circle,
+                            borderRadius: BorderRadius.circular(d * .15),
                             color: fill,
                             boxShadow: [BoxShadow(color: a.withOpacity(.4), blurRadius: 20, spreadRadius: 2)],
                           ),
@@ -2336,6 +2363,59 @@ class _SebhaScreenState extends State<SebhaScreen> {
   }
 }
 
+
+// ---------- مؤشر تقدم مربع (بديل الدائرة) ----------
+class SquareProgress extends StatelessWidget {
+  final double size, value;
+  final Color color;
+  const SquareProgress({super.key, required this.size, required this.value, required this.color});
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+        size: Size(size, size),
+        painter: _SquareProgressPainter(value.clamp(0.0, 1.0), color),
+      );
+}
+
+class _SquareProgressPainter extends CustomPainter {
+  final double value;
+  final Color color;
+  _SquareProgressPainter(this.value, this.color);
+  @override
+  void paint(Canvas canvas, Size size) {
+    const w = 10.0;
+    final rect = Rect.fromLTWH(w / 2, w / 2, size.width - w, size.height - w);
+    final r = size.width * .2;
+    final track = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w
+      ..color = color.withOpacity(.15);
+    final bar = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w
+      ..strokeCap = StrokeCap.round
+      ..color = color;
+    // يبدأ من منتصف الحافة العلوية ويلف مع عقارب الساعة
+    final path = Path()
+      ..moveTo(rect.center.dx, rect.top)
+      ..lineTo(rect.right - r, rect.top)
+      ..arcToPoint(Offset(rect.right, rect.top + r), radius: Radius.circular(r))
+      ..lineTo(rect.right, rect.bottom - r)
+      ..arcToPoint(Offset(rect.right - r, rect.bottom), radius: Radius.circular(r))
+      ..lineTo(rect.left + r, rect.bottom)
+      ..arcToPoint(Offset(rect.left, rect.bottom - r), radius: Radius.circular(r))
+      ..lineTo(rect.left, rect.top + r)
+      ..arcToPoint(Offset(rect.left + r, rect.top), radius: Radius.circular(r))
+      ..close();
+    canvas.drawPath(path, track);
+    if (value <= 0) return;
+    for (final m in path.computeMetrics()) {
+      canvas.drawPath(m.extractPath(0, m.length * value), bar);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SquareProgressPainter o) => o.value != value || o.color != color;
+}
 
 // ---------- الإحصائيات وسجل الشهور ----------
 String fmtNum(int n) => n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',');
