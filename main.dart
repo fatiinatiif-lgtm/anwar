@@ -58,6 +58,33 @@ const palettes = [
   AppPalette('الرمادي الأنيق', Color(0xFF455A64), Color(0xFFC9A227), Color(0xFFF3F5F6)),
   AppPalette('الفحمي', Color(0xFF263238), Color(0xFFC9A227), Color(0xFFF2F4F5)),
   AppPalette('الأسود والذهبي', Color(0xFF1C1C1C), Color(0xFFD4AF37), Color(0xFFF7F6F2)),
+  AppPalette('الزمردي الداكن', Color(0xFF064E3B), Color(0xFFFACC15), Color(0xFFF0F7F4)),
+  AppPalette('أخضر الغابة', Color(0xFF14532D), Color(0xFFFDE047), Color(0xFFF1F8F3)),
+  AppPalette('الأخضر الصنوبري', Color(0xFF1B4332), Color(0xFFE9C46A), Color(0xFFF1F7F3)),
+  AppPalette('الأخضر الفستقي', Color(0xFF5B8C2A), Color(0xFFE5A100), Color(0xFFF5F9EC)),
+  AppPalette('الأخضر الليموني', Color(0xFF4D7C0F), Color(0xFFF59E0B), Color(0xFFF7FAEC)),
+  AppPalette('الزيتوني الداكن', Color(0xFF3F4A2A), Color(0xFFE0B04A), Color(0xFFF4F5EE)),
+  AppPalette('الكاكي', Color(0xFF6B705C), Color(0xFFDDB892), Color(0xFFF6F6F1)),
+  AppPalette('الأزرق البترولي', Color(0xFF0B525B), Color(0xFFF2A541), Color(0xFFEFF7F8)),
+  AppPalette('الأزرق الجليدي', Color(0xFF3B6E8F), Color(0xFFF2B134), Color(0xFFF1F7FB)),
+  AppPalette('السماوي الهادئ', Color(0xFF0369A1), Color(0xFFF97316), Color(0xFFF0F9FF)),
+  AppPalette('الأزرق الليلي', Color(0xFF172554), Color(0xFFEAB308), Color(0xFFF1F4FB)),
+  AppPalette('الأزرق الفولاذي', Color(0xFF334E68), Color(0xFFF4B942), Color(0xFFF3F6F9)),
+  AppPalette('الأزرق البنفسجي', Color(0xFF6A5ACD), Color(0xFFFFC857), Color(0xFFF6F5FD)),
+  AppPalette('البنفسجي الملكي', Color(0xFF581C87), Color(0xFFFACC15), Color(0xFFF8F3FC)),
+  AppPalette('الأرجواني الغامق', Color(0xFF701A75), Color(0xFFFBBF24), Color(0xFFFBF2FC)),
+  AppPalette('الفوشيا', Color(0xFFA21CAF), Color(0xFFFDE047), Color(0xFFFDF4FF)),
+  AppPalette('الوردي الداكن', Color(0xFF9D174D), Color(0xFFFDE68A), Color(0xFFFDF2F8)),
+  AppPalette('الياقوتي', Color(0xFF9B1C31), Color(0xFFF4C95D), Color(0xFFFDF3F4)),
+  AppPalette('الأحمر الداكن', Color(0xFF7F1D1D), Color(0xFFFCD34D), Color(0xFFFDF4F4)),
+  AppPalette('الخمري', Color(0xFF6B1F3A), Color(0xFFD4AF37), Color(0xFFFBF3F6)),
+  AppPalette('التراكوتا', Color(0xFFB5523B), Color(0xFFE9C46A), Color(0xFFFBF4F0)),
+  AppPalette('البرتقالي المحروق', Color(0xFFC2410C), Color(0xFFFDE68A), Color(0xFFFFF7ED)),
+  AppPalette('الكهرماني', Color(0xFFB45309), Color(0xFFFCD34D), Color(0xFFFFFBEB)),
+  AppPalette('الذهبي الداكن', Color(0xFF92400E), Color(0xFFFBBF24), Color(0xFFFEF9EE)),
+  AppPalette('القهوة', Color(0xFF4E342E), Color(0xFFD7A86E), Color(0xFFF8F3EF)),
+  AppPalette('الشوكولاتة', Color(0xFF3E2723), Color(0xFFE0A100), Color(0xFFF7F2EF)),
+  AppPalette('الرمادي الأزرق', Color(0xFF37474F), Color(0xFFE0A100), Color(0xFFF2F5F6)),
 ];
 
 final paletteIndex = ValueNotifier<int>(0);
@@ -385,12 +412,12 @@ class _ShellState extends State<Shell> {
         bottomNavigationBar: SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+            padding: const EdgeInsets.fromLTRB(10, 0, 10, 14),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
               decoration: BoxDecoration(
                 color: isDark(context) ? Theme.of(context).cardColor : Colors.white,
-                borderRadius: BorderRadius.circular(26),
+                borderRadius: BorderRadius.circular(32),
                 border: Border.all(color: accent(context).withOpacity(.25)),
                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(.18), blurRadius: 16, offset: const Offset(0, 4))],
               ),
@@ -417,20 +444,22 @@ class _ShellState extends State<Shell> {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
         AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          width: 46,
-          height: 40,
+          width: 60,
+          height: 52,
           decoration: BoxDecoration(
             color: sel ? ac : ac.withOpacity(.14),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(18),
           ),
-          child: Icon(_navIcons[k], size: 24, color: sel ? (isDark(context) ? Colors.black87 : Colors.white) : ac),
+          child: Icon(_navIcons[k], size: 31, color: sel ? (isDark(context) ? Colors.black87 : Colors.white) : ac),
         ),
-        const SizedBox(height: 4),
-        Text(
-          _navLabels[k],
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 11, fontWeight: sel ? FontWeight.bold : FontWeight.normal, color: sel ? ac : Colors.grey),
+        const SizedBox(height: 5),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            _navLabels[k],
+            maxLines: 1,
+            style: TextStyle(fontSize: 13.5, fontWeight: sel ? FontWeight.bold : FontWeight.normal, color: sel ? ac : Colors.grey),
+          ),
         ),
       ]),
     );
@@ -1361,6 +1390,87 @@ class _PrayerTabState extends State<PrayerTab> {
     Navigator.push(context, MaterialPageRoute(builder: (_) => LevelScreen(level, y, m, d)));
   }
 
+  // بطاقة المستوى: تدرّج لوني من لون الثيم يزداد درجةً مع المستوى + نجوم تبيّن رقم المستوى
+  Widget _levelCard(BuildContext context, int l) {
+    final p = pri(context), sd = Color.lerp(sec(context), Colors.black, .3)!;
+    final c1 = Color.lerp(p, sd, (l - 1) / 4)!;
+    final c2 = Color.lerp(c1, Colors.black, .3)!;
+    final mine = myLevel == l;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [c1, c2]),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: mine ? Colors.white : Colors.transparent, width: 2.5),
+        boxShadow: [BoxShadow(color: c1.withOpacity(.35), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(22),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: () => open(l),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 14, 14, 14),
+            child: Row(children: [
+              Container(
+                width: 56,
+                height: 56,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(.2),
+                  border: Border.all(color: Colors.white.withOpacity(.6), width: 1.5),
+                ),
+                child: Text('$l', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('المستوى ${levelNames[l - 1]}',
+                      style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: Colors.white)),
+                  const SizedBox(height: 4),
+                  Text('${l * 2000} صلاة يومياً', style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(.85))),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    for (var i = 0; i < 5; i++)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 3),
+                        child: Icon(i < l ? Icons.star : Icons.star_border,
+                            size: 15, color: Colors.white.withOpacity(i < l ? 1 : .45)),
+                      ),
+                  ]),
+                ]),
+              ),
+              Tooltip(
+                message: mine ? 'هذا مستواك' : 'اختيار هذا المستوى كمستواي',
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => setMyLevel(l),
+                  child: SizedBox(
+                    width: 60,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(mine ? Icons.check_circle : Icons.radio_button_unchecked,
+                            size: 32, color: Colors.white.withOpacity(mine ? 1 : .75)),
+                        Text(mine ? 'مستواي' : 'اختيار',
+                            style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: mine ? FontWeight.bold : FontWeight.normal,
+                                color: Colors.white.withOpacity(mine ? 1 : .8))),
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget dd(String label, int v, List<int> items, String Function(int) txt, void Function(int) on) => Expanded(
         child: DropdownButtonFormField<int>(
           value: v,
@@ -1416,42 +1526,7 @@ class _PrayerTabState extends State<PrayerTab> {
         child: Text('علّم على مستواك بالعلامة ✓ على الجنب، ومش هيتغيّر إلا لما تختار مستوى تاني بنفسك. فتح أي مستوى للفرجة مش بيغيّر مستواك.',
             style: TextStyle(fontSize: 12.5, height: 1.6, color: Theme.of(context).hintColor)),
       ),
-      for (var l = 1; l <= 5; l++)
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
-          child: Row(children: [
-            Expanded(
-              child: FilledButton(
-                style: FilledButton.styleFrom(padding: const EdgeInsets.all(16), backgroundColor: l.isOdd ? pri(context) : Color.lerp(sec(context), Colors.black, .3)),
-                onPressed: () => open(l),
-                child: Text('المستوى ${levelNames[l - 1]}  •  ${l * 2000} صلاة يومياً', style: const TextStyle(fontSize: 17)),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Tooltip(
-              message: myLevel == l ? 'هذا مستواك' : 'اختيار هذا المستوى كمستواي',
-              child: InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () => setMyLevel(l),
-                child: SizedBox(
-                  width: 56,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Column(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(myLevel == l ? Icons.check_circle : Icons.radio_button_unchecked,
-                          size: 32, color: myLevel == l ? accent(context) : Theme.of(context).hintColor),
-                      Text(myLevel == l ? 'مستواي' : 'اختيار',
-                          style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: myLevel == l ? FontWeight.bold : FontWeight.normal,
-                              color: myLevel == l ? accent(context) : Theme.of(context).hintColor)),
-                    ]),
-                  ),
-                ),
-              ),
-            ),
-          ]),
-        ),
+      for (var l = 1; l <= 5; l++) _levelCard(context, l),
       const SizedBox(height: 10),
       Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
@@ -4322,14 +4397,46 @@ class _AnwarScreenState extends State<AnwarScreen> {
     save();
   }
 
+  bool _askingDone = false;
+
   void tap() {
-    if (items.isEmpty) return;
+    if (items.isEmpty || _askingDone) return;
     HapticFeedback.lightImpact();
+    final last = idx == items.length - 1;
     setState(() {
       count++;
-      idx = (idx + 1) % items.length;
+      if (!last) idx++;
     });
     save();
+    if (last) showDone();
+  }
+
+  // بعد الانتهاء من كل الصيغ: رسالة إتمام + سؤال هل تبدأ من جديد
+  Future<void> showDone() async {
+    _askingDone = true;
+    HapticFeedback.heavyImpact();
+    final again = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => AlertDialog(
+        icon: Icon(Icons.check_circle, size: 56, color: accent(c)),
+        title: const Text('ما شاء الله، أتممت جميع الصيغ', textAlign: TextAlign.center),
+        content: Text('عدّادك: $count\nهل تريد البدء من جديد؟', textAlign: TextAlign.center),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('لا')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('نعم، ابدأ من جديد')),
+        ],
+      ),
+    );
+    _askingDone = false;
+    if (again == true && mounted) {
+      setState(() {
+        idx = 0;
+        count = 0;
+      });
+      save();
+    }
   }
 
   Future<void> confirmReset() async {
@@ -4356,12 +4463,22 @@ class _AnwarScreenState extends State<AnwarScreen> {
   Widget buildBox(BuildContext context, Color a) {
     final it = items[idx];
     const style = TextStyle(fontSize: 21, height: 2.0, fontWeight: FontWeight.bold);
+    // ألوان الصندوق مأخوذة من ثيم التطبيق (اللون الأساسي + لون التمييز)
+    final pc = pri(context), sc = sec(context), dark = isDark(context);
+    final bgColors = dark
+        ? [pc.withOpacity(.38), sc.withOpacity(.12)]
+        : [pc.withOpacity(.10), sc.withOpacity(.16)];
+    final borderColor = sc.withOpacity(dark ? .75 : .85);
+    final titleColor = dark ? sc : pc;
+    final textColor = dark ? Color.lerp(sc, Colors.white, .78)! : Color.lerp(pc, Colors.black, .45)!;
+    final textStyle = style.copyWith(color: textColor);
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: a.withOpacity(.08),
+        gradient: LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: bgColors),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: a.withOpacity(.45), width: 1.4),
+        border: Border.all(color: borderColor, width: 1.6),
+        boxShadow: [BoxShadow(color: pc.withOpacity(dark ? .25 : .15), blurRadius: 12, offset: const Offset(0, 4))],
       ),
       child: LayoutBuilder(builder: (ctx, bc) {
         final w = bc.maxWidth - 36;
@@ -4382,7 +4499,7 @@ class _AnwarScreenState extends State<AnwarScreen> {
                     width: w,
                     child: Text(it.title!,
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, height: 1.8, color: a)),
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, height: 1.8, color: titleColor)),
                   ),
                   const SizedBox(height: 8),
                 ],
@@ -4390,7 +4507,7 @@ class _AnwarScreenState extends State<AnwarScreen> {
                   if (p > 0) const SizedBox(height: 10),
                   SizedBox(
                     width: w,
-                    child: Text(shownFor(p), textAlign: TextAlign.justify, textDirection: TextDirection.rtl, style: style),
+                    child: Text(shownFor(p), textAlign: TextAlign.justify, textDirection: TextDirection.rtl, style: textStyle),
                   ),
                 ],
               ]),
