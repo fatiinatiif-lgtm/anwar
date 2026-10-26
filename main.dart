@@ -3739,9 +3739,9 @@ class _AnwarScreenState extends State<AnwarScreen> {
           child: loading
               ? const Center(child: CircularProgressIndicator())
               : items.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Padding(
-                        padding: EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(24),
                         child: Text(widget.emptyMsg, textAlign: TextAlign.center),
                       ),
                     )
