@@ -9,7 +9,7 @@ jobs:
       - name: Apply updates
         run: |
           cp hekma.txt elhama.txt sera.txt anwar_library/assets/index/
-          cp about_us.txt fadl_salah.txt anwar_1.txt anwar_2.txt anwar_3.txt anwar_library/assets/texts/
+          cp about_us.txt fadl_salah.txt anwar_1.txt anwar_2.txt anwar_3.txt mubarakat.txt anwar_library/assets/texts/
           cp newbooks/*.pdf anwar_library/assets/books/ || true
           cp newbooks/*.jpg anwar_library/assets/covers/ || true
           cp newbooks/*.txt anwar_library/assets/index/ || true
@@ -30,13 +30,4 @@ jobs:
         working-directory: anwar_library
         run: |
           flutter create --org com.anwar --project-name anwar_library --platforms android .
-          flutter pub add url_launcher font_awesome_flutter scrollable_positioned_list flutter_local_notifications timezone
-          python3 ../add_notifications.py android
-          sed -i 's/android:label="[^"]*"/android:label="مكتبة الأنوار المحمدية"/' android/app/src/main/AndroidManifest.xml
-          flutter pub get
-          dart run flutter_launcher_icons
-          flutter build apk --release --split-per-abi --target-platform android-arm64
-      - uses: actions/upload-artifact@v4
-        with:
-          name: anwar-apk
-          path: anwar_library/build/app/outputs/flutter-apk/app-arm64-v8a-release.apk
+          flutter pub add url_launcher fon
