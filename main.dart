@@ -23,88 +23,75 @@ bool isDark(BuildContext c) => Theme.of(c).brightness == Brightness.dark;
 // ---------- الألوان ----------
 class AppPalette {
   final String name;
-  final Color primary, accent, bg;
-  const AppPalette(this.name, this.primary, this.accent, this.bg);
+  final Color primary, accent, third, bg;
+  // primary = اللون الأساسي، accent = لون مميّز فاتح، third = لون ثالث بيتمزج معاهم في التدرّجات
+  const AppPalette(this.name, this.primary, this.accent, this.third, this.bg);
 }
 
 const palettes = [
-  AppPalette('الأخضر والذهبي', Color(0xFF0B5D3B), Color(0xFFC9A227), Color(0xFFFBF7EC)),
-  AppPalette('الأخضر الزمردي', Color(0xFF047857), Color(0xFFF59E0B), Color(0xFFF0FBF6)),
-  AppPalette('الأخضر الزيتي', Color(0xFF556B2F), Color(0xFFD4A017), Color(0xFFF6F7EE)),
-  AppPalette('الأخضر البحري', Color(0xFF2E7D5B), Color(0xFFE6B800), Color(0xFFF2FAF5)),
-  AppPalette('الفيروزي', Color(0xFF00796B), Color(0xFFE0A100), Color(0xFFF0F8F7)),
-  AppPalette('الفيروزي الفاتح', Color(0xFF1F8F84), Color(0xFFFFB300), Color(0xFFF0FAF9)),
-  AppPalette('الأزرق المخضر', Color(0xFF0E7C86), Color(0xFFFFB74D), Color(0xFFF0F9FA)),
-  AppPalette('الأزرق', Color(0xFF1565C0), Color(0xFFE0A100), Color(0xFFF2F7FD)),
-  AppPalette('الأزرق السماوي', Color(0xFF0277BD), Color(0xFFFFB300), Color(0xFFF0F8FD)),
-  AppPalette('الأزرق الملكي', Color(0xFF1E3A8A), Color(0xFFFBBF24), Color(0xFFF3F6FD)),
-  AppPalette('الكحلي', Color(0xFF1B2A49), Color(0xFFD4AF37), Color(0xFFF4F5F9)),
-  AppPalette('الأزرق الرمادي', Color(0xFF5C7C99), Color(0xFFC9A227), Color(0xFFF3F6F9)),
-  AppPalette('النيلي', Color(0xFF3F51B5), Color(0xFFFFC107), Color(0xFFF4F5FC)),
-  AppPalette('البنفسجي', Color(0xFF5E35B1), Color(0xFFD4A017), Color(0xFFF6F2FB)),
-  AppPalette('البنفسجي الداكن', Color(0xFF4527A0), Color(0xFFE0A100), Color(0xFFF5F2FB)),
-  AppPalette('الأرجواني', Color(0xFF7B1FA2), Color(0xFFFFCA28), Color(0xFFF8F1FB)),
-  AppPalette('الليلكي', Color(0xFF8E6BBF), Color(0xFFD4A017), Color(0xFFF8F5FC)),
-  AppPalette('الوردي', Color(0xFFAD1457), Color(0xFFC9A227), Color(0xFFFDF2F6)),
-  AppPalette('الوردي الناعم', Color(0xFFD14B80), Color(0xFFC9A227), Color(0xFFFEF3F7)),
-  AppPalette('الكرزي', Color(0xFFB71C4A), Color(0xFFFFD54F), Color(0xFFFDF2F5)),
-  AppPalette('العنابي', Color(0xFF8E1B2D), Color(0xFFC9A227), Color(0xFFFCF4F5)),
-  AppPalette('الأحمر', Color(0xFFC62828), Color(0xFFE0A100), Color(0xFFFDF3F3)),
-  AppPalette('المرجاني', Color(0xFFD9534F), Color(0xFFC9A227), Color(0xFFFEF5F3)),
-  AppPalette('البرتقالي', Color(0xFFE65100), Color(0xFFFFD54F), Color(0xFFFFF6EE)),
-  AppPalette('العسلي', Color(0xFF9A6B1F), Color(0xFFE0B04A), Color(0xFFFBF6EC)),
-  AppPalette('الرملي', Color(0xFF8D7B4F), Color(0xFFB8860B), Color(0xFFFAF7EF)),
-  AppPalette('البني', Color(0xFF6D4C41), Color(0xFFC9A227), Color(0xFFFAF5F0)),
-  AppPalette('الرمادي الأنيق', Color(0xFF455A64), Color(0xFFC9A227), Color(0xFFF3F5F6)),
-  AppPalette('الفحمي', Color(0xFF263238), Color(0xFFC9A227), Color(0xFFF2F4F5)),
-  AppPalette('الأسود والذهبي', Color(0xFF1C1C1C), Color(0xFFD4AF37), Color(0xFFF7F6F2)),
-  AppPalette('الزمردي الداكن', Color(0xFF064E3B), Color(0xFFFACC15), Color(0xFFF0F7F4)),
-  AppPalette('أخضر الغابة', Color(0xFF14532D), Color(0xFFFDE047), Color(0xFFF1F8F3)),
-  AppPalette('الأخضر الصنوبري', Color(0xFF1B4332), Color(0xFFE9C46A), Color(0xFFF1F7F3)),
-  AppPalette('الأخضر الفستقي', Color(0xFF5B8C2A), Color(0xFFE5A100), Color(0xFFF5F9EC)),
-  AppPalette('الأخضر الليموني', Color(0xFF4D7C0F), Color(0xFFF59E0B), Color(0xFFF7FAEC)),
-  AppPalette('الزيتوني الداكن', Color(0xFF3F4A2A), Color(0xFFE0B04A), Color(0xFFF4F5EE)),
-  AppPalette('الكاكي', Color(0xFF6B705C), Color(0xFFDDB892), Color(0xFFF6F6F1)),
-  AppPalette('الأزرق البترولي', Color(0xFF0B525B), Color(0xFFF2A541), Color(0xFFEFF7F8)),
-  AppPalette('الأزرق الجليدي', Color(0xFF3B6E8F), Color(0xFFF2B134), Color(0xFFF1F7FB)),
-  AppPalette('السماوي الهادئ', Color(0xFF0369A1), Color(0xFFF97316), Color(0xFFF0F9FF)),
-  AppPalette('الأزرق الليلي', Color(0xFF172554), Color(0xFFEAB308), Color(0xFFF1F4FB)),
-  AppPalette('الأزرق الفولاذي', Color(0xFF334E68), Color(0xFFF4B942), Color(0xFFF3F6F9)),
-  AppPalette('الأزرق البنفسجي', Color(0xFF6A5ACD), Color(0xFFFFC857), Color(0xFFF6F5FD)),
-  AppPalette('البنفسجي الملكي', Color(0xFF581C87), Color(0xFFFACC15), Color(0xFFF8F3FC)),
-  AppPalette('الأرجواني الغامق', Color(0xFF701A75), Color(0xFFFBBF24), Color(0xFFFBF2FC)),
-  AppPalette('الفوشيا', Color(0xFFA21CAF), Color(0xFFFDE047), Color(0xFFFDF4FF)),
-  AppPalette('الوردي الداكن', Color(0xFF9D174D), Color(0xFFFDE68A), Color(0xFFFDF2F8)),
-  AppPalette('الياقوتي', Color(0xFF9B1C31), Color(0xFFF4C95D), Color(0xFFFDF3F4)),
-  AppPalette('الأحمر الداكن', Color(0xFF7F1D1D), Color(0xFFFCD34D), Color(0xFFFDF4F4)),
-  AppPalette('الخمري', Color(0xFF6B1F3A), Color(0xFFD4AF37), Color(0xFFFBF3F6)),
-  AppPalette('التراكوتا', Color(0xFFB5523B), Color(0xFFE9C46A), Color(0xFFFBF4F0)),
-  AppPalette('البرتقالي المحروق', Color(0xFFC2410C), Color(0xFFFDE68A), Color(0xFFFFF7ED)),
-  AppPalette('الكهرماني', Color(0xFFB45309), Color(0xFFFCD34D), Color(0xFFFFFBEB)),
-  AppPalette('الذهبي الداكن', Color(0xFF92400E), Color(0xFFFBBF24), Color(0xFFFEF9EE)),
-  AppPalette('القهوة', Color(0xFF4E342E), Color(0xFFD7A86E), Color(0xFFF8F3EF)),
-  AppPalette('الشوكولاتة', Color(0xFF3E2723), Color(0xFFE0A100), Color(0xFFF7F2EF)),
-  AppPalette('الرمادي الأزرق', Color(0xFF37474F), Color(0xFFE0A100), Color(0xFFF2F5F6)),
+  AppPalette('الأخضر والذهبي', Color(0xFF0B5D3B), Color(0xFFC9A227), Color(0xFF2E8B6E), Color(0xFFFBF7EC)),
+  AppPalette('الزمرد والمرجان', Color(0xFF0B6B4A), Color(0xFFFF8A75), Color(0xFF26A69A), Color(0xFFF3FAF6)),
+  AppPalette('الفيروز والخوخ', Color(0xFF00796B), Color(0xFFFFAB91), Color(0xFF7E57C2), Color(0xFFF0F8F7)),
+  AppPalette('الأزرق والمرجان', Color(0xFF1565C0), Color(0xFFFF8A65), Color(0xFF00ACC1), Color(0xFFF2F7FD)),
+  AppPalette('الكحلي والتركواز', Color(0xFF1B2A49), Color(0xFF4FD1C5), Color(0xFFEC6F8F), Color(0xFFF4F5F9)),
+  AppPalette('البنفسجي والنعناع', Color(0xFF5E35B1), Color(0xFF6EE7B7), Color(0xFFEC407A), Color(0xFFF6F2FB)),
+  AppPalette('الأرجواني والليموني', Color(0xFF7B1FA2), Color(0xFFC5E85A), Color(0xFF039BE5), Color(0xFFF8F1FB)),
+  AppPalette('العنابي والتركواز', Color(0xFF8E1B2D), Color(0xFF5FD3D9), Color(0xFFE57399), Color(0xFFFCF4F5)),
+  AppPalette('الوردي والأخضر', Color(0xFFAD1457), Color(0xFF81C784), Color(0xFFF57C00), Color(0xFFFDF2F6)),
+  AppPalette('البرتقالي والسماوي', Color(0xFFD84315), Color(0xFF6EDCEB), Color(0xFF5C6BC0), Color(0xFFFFF6EE)),
+  AppPalette('الأحمر والتركواز', Color(0xFFC62828), Color(0xFF7BEAD9), Color(0xFF5E35B1), Color(0xFFFDF3F3)),
+  AppPalette('الزيتي والوردي', Color(0xFF556B2F), Color(0xFFF9A8C9), Color(0xFF8D6E63), Color(0xFFF6F7EE)),
+  AppPalette('النيلي والمشمشي', Color(0xFF3F51B5), Color(0xFFFFB38A), Color(0xFF26A69A), Color(0xFFF4F5FC)),
+  AppPalette('الأزرق الملكي والنعناع', Color(0xFF1E3A8A), Color(0xFF9AF0B8), Color(0xFFD81B60), Color(0xFFF3F6FD)),
+  AppPalette('البترولي والمرجان', Color(0xFF0B525B), Color(0xFFFF9A8B), Color(0xFFF9A825), Color(0xFFEFF7F8)),
+  AppPalette('الخمري والنعناع', Color(0xFF6B1F3A), Color(0xFF80E4C8), Color(0xFFB565A7), Color(0xFFFBF3F6)),
+  AppPalette('الغابة والخزامى', Color(0xFF14532D), Color(0xFFCDB8FF), Color(0xFFE76F8A), Color(0xFFF1F8F3)),
+  AppPalette('الفحمي والنيون', Color(0xFF263238), Color(0xFF6EF0B0), Color(0xFF29B6F6), Color(0xFFF2F4F5)),
+  AppPalette('البني والفيروزي', Color(0xFF5D4037), Color(0xFF59D6C6), Color(0xFFEF8A5F), Color(0xFFFAF5F0)),
+  AppPalette('السماوي والوردي', Color(0xFF0277BD), Color(0xFFFF9FC6), Color(0xFF26C6DA), Color(0xFFF0F8FD)),
+  AppPalette('الليلكي والأخضر', Color(0xFF6A4FA3), Color(0xFFA8F0CF), Color(0xFFFB8C00), Color(0xFFF7F4FC)),
+  AppPalette('الفوشيا والسماوي', Color(0xFFA21CAF), Color(0xFF8AD8FF), Color(0xFFF9A825), Color(0xFFFDF4FF)),
+  AppPalette('التراكوتا والأزرق', Color(0xFFB5523B), Color(0xFF94D5EA), Color(0xFF2E8B8B), Color(0xFFFBF4F0)),
+  AppPalette('الأخضر والزهري', Color(0xFF2E7D5B), Color(0xFFFFB6CB), Color(0xFF0288D1), Color(0xFFF2FAF5)),
+  AppPalette('الزمردي والأرجواني', Color(0xFF047857), Color(0xFFCFA2FF), Color(0xFFF59E0B), Color(0xFFF0FBF6)),
+  AppPalette('الليلي والليموني', Color(0xFF172554), Color(0xFFC3F26B), Color(0xFF0EA5E9), Color(0xFFF1F4FB)),
+  AppPalette('الأرجواني والبرتقالي', Color(0xFF701A75), Color(0xFFFFBF80), Color(0xFF14B8A6), Color(0xFFFBF2FC)),
+  AppPalette('الوردي الداكن والتركواز', Color(0xFF9D174D), Color(0xFF72E6F2), Color(0xFF84CC16), Color(0xFFFDF2F8)),
+  AppPalette('الكاكي والخوخ', Color(0xFF6B705C), Color(0xFFFFB9AB), Color(0xFF4F9DA6), Color(0xFFF6F6F1)),
+  AppPalette('الفولاذي والكهرماني', Color(0xFF334E68), Color(0xFFFFC77D), Color(0xFF3FB68B), Color(0xFFF3F6F9)),
+  AppPalette('الأسود والنعناع', Color(0xFF1C1C1C), Color(0xFF8FF0CB), Color(0xFFFF6B9A), Color(0xFFF7F6F2)),
+  AppPalette('الأزرق والمشمشي والوردي', Color(0xFF4C6EF5), Color(0xFFFFC078), Color(0xFFF06595), Color(0xFFF4F6FF)),
+  AppPalette('الغروب', Color(0xFF7B2D5B), Color(0xFFFFA574), Color(0xFFFF5D8F), Color(0xFFFCF3F7)),
+  AppPalette('المحيط', Color(0xFF0D4F7A), Color(0xFF62E3E8), Color(0xFF2BB673), Color(0xFFF0F7FB)),
+  AppPalette('الربيع', Color(0xFF2F7D32), Color(0xFFFF9DBA), Color(0xFFFBC02D), Color(0xFFF3FAF1)),
+  AppPalette('الكحلي والذهبي', Color(0xFF1B2A49), Color(0xFFD4AF37), Color(0xFF3F6FB5), Color(0xFFF4F5F9)),
 ];
 
 final paletteIndex = ValueNotifier<int>(0);
 final hijriOffset = ValueNotifier<int>(0);
 
 class PaletteExt extends ThemeExtension<PaletteExt> {
-  final Color primary, accent;
-  const PaletteExt(this.primary, this.accent);
+  final Color primary, accent, third;
+  const PaletteExt(this.primary, this.accent, this.third);
   @override
-  PaletteExt copyWith({Color? primary, Color? accent}) => PaletteExt(primary ?? this.primary, accent ?? this.accent);
+  PaletteExt copyWith({Color? primary, Color? accent, Color? third}) =>
+      PaletteExt(primary ?? this.primary, accent ?? this.accent, third ?? this.third);
   @override
   PaletteExt lerp(ThemeExtension<PaletteExt>? other, double t) {
     if (other is! PaletteExt) return this;
-    return PaletteExt(Color.lerp(primary, other.primary, t)!, Color.lerp(accent, other.accent, t)!);
+    return PaletteExt(Color.lerp(primary, other.primary, t)!, Color.lerp(accent, other.accent, t)!, Color.lerp(third, other.third, t)!);
   }
 }
 
 Color pri(BuildContext c) => Theme.of(c).extension<PaletteExt>()?.primary ?? const Color(0xFF0B5D3B);
 Color sec(BuildContext c) => Theme.of(c).extension<PaletteExt>()?.accent ?? const Color(0xFFC9A227);
+Color tri(BuildContext c) => Theme.of(c).extension<PaletteExt>()?.third ?? const Color(0xFF2E8B6E);
 Color accent(BuildContext c) => isDark(c) ? sec(c) : pri(c);
+// ألوان متنوّعة للأيقونات: بتلف بين اللون الأساسي والمميّز والثالث
+Color mixIcon(BuildContext c, int i) {
+  final list = [accent(c), tri(c), sec(c)];
+  return list[i % list.length];
+}
 void toggleDark() {
   final d = themeMode.value != ThemeMode.dark;
   themeMode.value = d ? ThemeMode.dark : ThemeMode.light;
@@ -259,7 +246,7 @@ class App extends StatelessWidget {
           valueListenable: themeMode,
           builder: (_, mode, __) {
             final p = palettes[pi];
-            final ext = PaletteExt(p.primary, p.accent);
+            final ext = PaletteExt(p.primary, p.accent, p.third);
             return MaterialApp(
               debugShowCheckedModeBanner: false,
               title: 'مكتبة الأنوار المحمدية',
@@ -272,7 +259,7 @@ class App extends StatelessWidget {
               ],
               themeMode: mode,
               theme: ThemeData(
-                colorScheme: ColorScheme.fromSeed(seedColor: p.primary, primary: p.primary, secondary: p.accent),
+                colorScheme: ColorScheme.fromSeed(seedColor: p.primary, primary: p.primary, secondary: p.accent, tertiary: p.third),
                 scaffoldBackgroundColor: p.bg,
                 appBarTheme: AppBarTheme(backgroundColor: p.primary, foregroundColor: Colors.white),
                 useMaterial3: true,
@@ -280,7 +267,7 @@ class App extends StatelessWidget {
               ),
               darkTheme: ThemeData(
                 brightness: Brightness.dark,
-                colorScheme: ColorScheme.fromSeed(seedColor: p.primary, brightness: Brightness.dark),
+                colorScheme: ColorScheme.fromSeed(seedColor: p.primary, brightness: Brightness.dark, tertiary: p.third),
                 scaffoldBackgroundColor: Color.lerp(const Color(0xFF121212), p.primary, .12),
                 cardColor: Color.lerp(const Color(0xFF1E1E1E), p.primary, .15),
                 appBarTheme: AppBarTheme(backgroundColor: Color.lerp(p.primary, Colors.black, .35), foregroundColor: Colors.white),
@@ -576,7 +563,7 @@ class HomeActionCard extends StatelessWidget {
     final p = pri(context), sc = sec(context);
     final base = gold ? Color.lerp(sc, Colors.black, .3)! : p;
     final c1 = Color.lerp(base, Colors.white, .08)!;
-    final c2 = Color.lerp(base, Colors.black, .35)!;
+    final c2 = Color.lerp(Color.lerp(base, tri(context), .3)!, Colors.black, .35)!;
     final edge = Color.lerp(sc, Colors.white, .25)!;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -680,7 +667,7 @@ class AuthorPhoto extends StatelessWidget {
             padding: const EdgeInsets.all(5),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: SweepGradient(colors: [sec(context), pri(context), sec(context), Color.lerp(sec(context), Colors.white, .5)!, sec(context)]),
+              gradient: SweepGradient(colors: [sec(context), tri(context), pri(context), Color.lerp(sec(context), Colors.white, .5)!, sec(context)]),
               boxShadow: [BoxShadow(color: sec(context).withOpacity(.5), blurRadius: 22, spreadRadius: 2)],
             ),
             child: Container(
@@ -1603,8 +1590,11 @@ class _PrayerTabState extends State<PrayerTab> {
 
   // بطاقة المستوى: تدرّج لوني من لون الثيم يزداد درجةً مع المستوى + نجوم تبيّن رقم المستوى
   Widget _levelCard(BuildContext context, int l) {
-    final p = pri(context), sd = Color.lerp(sec(context), Colors.black, .3)!;
-    final c1 = Color.lerp(p, sd, (l - 1) / 4)!;
+    final p = pri(context), sd = Color.lerp(sec(context), Colors.black, .35)!;
+    final tt = Color.lerp(tri(context), Colors.black, .25)!;
+    // المستويات الخمسة بتمشي بين ألوان الثيم التلاتة
+    final stops = [p, Color.lerp(p, tt, .5)!, tt, Color.lerp(tt, sd, .5)!, sd];
+    final c1 = stops[(l - 1).clamp(0, 4).toInt()];
     final c2 = Color.lerp(c1, Colors.black, .3)!;
     final mine = myLevel == l;
     return Container(
@@ -2282,7 +2272,7 @@ class MoreTab extends StatelessWidget {
             ),
             Card(
               child: ListTile(
-                leading: Icon(Icons.calendar_month, color: accent(context)),
+                leading: Icon(Icons.calendar_month, color: mixIcon(context, 0)),
                 title: const Text('تعديل التقويم الهجري', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                 subtitle: ValueListenableBuilder<int>(
                   valueListenable: hijriOffset,
@@ -2294,7 +2284,7 @@ class MoreTab extends StatelessWidget {
             ),
             Card(
               child: ListTile(
-                leading: Icon(Icons.palette, color: accent(context)),
+                leading: Icon(Icons.palette, color: mixIcon(context, 1)),
                 title: const Text('الألوان', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                 subtitle: ValueListenableBuilder<int>(
                   valueListenable: paletteIndex,
@@ -2306,7 +2296,7 @@ class MoreTab extends StatelessWidget {
             ),
             Card(
               child: ListTile(
-                leading: Icon(Icons.bookmarks, color: accent(context)),
+                leading: Icon(Icons.bookmarks, color: mixIcon(context, 2)),
                 title: const Text('علاماتي المرجعية', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                 trailing: const Icon(Icons.chevron_left),
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BookmarksScreen())),
@@ -2314,7 +2304,7 @@ class MoreTab extends StatelessWidget {
             ),
             Card(
               child: ListTile(
-                leading: Icon(Icons.notifications_active, color: accent(context)),
+                leading: Icon(Icons.notifications_active, color: mixIcon(context, 3)),
                 title: const Text('إعدادات الإشعارات', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                 trailing: const Icon(Icons.chevron_left),
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotifSettingsScreen())),
@@ -2322,7 +2312,7 @@ class MoreTab extends StatelessWidget {
             ),
             Card(
               child: ListTile(
-                leading: Icon(Icons.support_agent, color: accent(context)),
+                leading: Icon(Icons.support_agent, color: mixIcon(context, 4)),
                 title: const Text('أبلغ عن مشكلة أو اقتراح', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                 subtitle: const Text('تواصل معنا مباشرة على الواتساب'),
                 trailing: const Icon(Icons.chevron_left),
@@ -2332,7 +2322,7 @@ class MoreTab extends StatelessWidget {
             ),
             Card(
               child: ListTile(
-                leading: Icon(Icons.info_outline, color: accent(context)),
+                leading: Icon(Icons.info_outline, color: mixIcon(context, 5)),
                 title: const Text('من نحن', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                 trailing: const Icon(Icons.chevron_left),
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutScreen())),
@@ -2393,34 +2383,71 @@ class HijriScreen extends StatelessWidget {
 class ColorsScreen extends StatelessWidget {
   const ColorsScreen({super.key});
 
-  Widget dot(Color c) => Container(width: 26, height: 26, decoration: BoxDecoration(color: c, shape: BoxShape.circle));
+  // بطاقة ثيم: شريط بثلاثة ألوان + معاينة صغيرة + الاسم
+  Widget swatch(AppPalette p, bool sel, VoidCallback onTap) => InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: p.bg,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: sel ? p.primary : Colors.black12, width: sel ? 3 : 1),
+            boxShadow: [BoxShadow(color: p.primary.withOpacity(sel ? .35 : .12), blurRadius: sel ? 12 : 6, offset: const Offset(0, 3))],
+          ),
+          child: Column(children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                child: Row(children: [
+                  Expanded(
+                    flex: 5,
+                    child: Container(
+                      color: p.primary,
+                      alignment: Alignment.center,
+                      child: sel
+                          ? const Icon(Icons.check_circle, color: Colors.white, size: 28)
+                          : Container(
+                              width: 30,
+                              height: 6,
+                              decoration: BoxDecoration(color: Colors.white.withOpacity(.55), borderRadius: BorderRadius.circular(3)),
+                            ),
+                    ),
+                  ),
+                  Expanded(flex: 3, child: Container(color: p.accent)),
+                  Expanded(flex: 3, child: Container(color: p.third)),
+                ]),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+              child: Text(p.name,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13.5, height: 1.3, fontWeight: sel ? FontWeight.bold : FontWeight.w600, color: Colors.black87)),
+            ),
+          ]),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('الألوان')),
         body: ValueListenableBuilder<int>(
           valueListenable: paletteIndex,
-          builder: (_, sel, __) => ListView.builder(
+          builder: (_, sel, __) => GridView.builder(
             padding: const EdgeInsets.all(14),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1.35,
+            ),
             itemCount: palettes.length,
-            itemBuilder: (_, k) {
-              final p = palettes[k];
-              return Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: BorderSide(color: k == sel ? p.accent : Colors.transparent, width: 2.5),
-                ),
-                child: ListTile(
-                  leading: Row(mainAxisSize: MainAxisSize.min, children: [dot(p.primary), const SizedBox(width: 4), dot(p.accent)]),
-                  title: Text(p.name, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-                  trailing: k == sel ? Icon(Icons.check_circle, color: p.primary) : null,
-                  onTap: () {
-                    paletteIndex.value = k;
-                    Repo.prefs.setInt('palette', k);
-                  },
-                ),
-              );
-            },
+            itemBuilder: (_, k) => swatch(palettes[k], k == sel, () {
+              paletteIndex.value = k;
+              Repo.prefs.setInt('palette', k);
+            }),
           ),
         ),
       );
@@ -4321,13 +4348,13 @@ Future<List<AnwarItem>> loadMubarakat() async {
   return items;
 }
 
-// ---------- مناجاة الأشواق (5 صيغ في الصندوق) ----------
+// ---------- مناجاة الأشواق (4 صيغ في الصندوق) ----------
 const munajatFile = 'assets/texts/munajat.txt';
-const _munPerBox = 5;
+const _munPerBox = 4;
 List<AnwarItem>? _munCache;
 
 // السطر الأول عنوان (بيتخطّى). فقرة الافتتاح (اللهم...) وفقرة الختام (صلى الله عليك...) كل واحدة في صندوق لوحدها،
-// وباقي الأسطر كل سطر صيغة وبيتقسّموا مجموعات من 5 صيغ في الصندوق
+// وباقي الأسطر كل سطر صيغة وبيتقسّموا مجموعات من 4 صيغ في الصندوق
 Future<List<AnwarItem>> loadMunajat() async {
   if (_munCache != null) return _munCache!;
   String raw;
@@ -4718,7 +4745,7 @@ class TasbihCover extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color.lerp(p, Colors.black, .3)!, p, Color.lerp(p, s, .3)!],
+          colors: [Color.lerp(p, Colors.black, .3)!, p, Color.lerp(p, tri(context), .45)!],
         ),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(.28), blurRadius: 4, offset: const Offset(0, 2))],
       ),
@@ -4927,6 +4954,91 @@ class AnwarMenuScreen extends StatelessWidget {
   }
 }
 
+// ---------- احتفال الإتمام: قلوب خضراء كتيرة طالعة لفوق ----------
+Path _heartPath(double s) {
+  final p = Path();
+  p.moveTo(0, s * .35);
+  p.cubicTo(-s * .55, -s * .05, -s * .35, -s * .55, 0, -s * .22);
+  p.cubicTo(s * .35, -s * .55, s * .55, -s * .05, 0, s * .35);
+  p.close();
+  return p;
+}
+
+class _GreenHeart {
+  final double x, size, phase, amp, freq, rot;
+  final int speed;
+  final Color color;
+  const _GreenHeart(this.x, this.size, this.phase, this.amp, this.freq, this.rot, this.speed, this.color);
+}
+
+class _HeartsPainter extends CustomPainter {
+  final Animation<double> t;
+  final List<_GreenHeart> hs;
+  _HeartsPainter(this.t, this.hs) : super(repaint: t);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (final h in hs) {
+      final p = (t.value * h.speed + h.phase) % 1.0;
+      final y = size.height * (1.08 - p * 1.2);
+      final x = size.width * h.x + dmath.sin(p * 2 * dmath.pi * h.freq + h.phase * 6) * h.amp;
+      final fade = p < .08 ? p / .08 : (p > .85 ? (1 - p) / .15 : 1.0);
+      final paint = Paint()..color = h.color.withOpacity((0.92 * fade).clamp(0.0, 1.0));
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(h.rot * dmath.sin(p * 2 * dmath.pi));
+      canvas.drawPath(_heartPath(h.size), paint);
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_HeartsPainter old) => false;
+}
+
+class _HeartsRain extends StatefulWidget {
+  const _HeartsRain();
+  @override
+  State<_HeartsRain> createState() => _HeartsRainState();
+}
+
+class _HeartsRainState extends State<_HeartsRain> with SingleTickerProviderStateMixin {
+  late final AnimationController ctrl;
+  late final List<_GreenHeart> hearts;
+
+  @override
+  void initState() {
+    super.initState();
+    ctrl = AnimationController(vsync: this, duration: const Duration(seconds: 9))..repeat();
+    final r = dmath.Random(11);
+    const greens = [Color(0xFF1B5E20), Color(0xFF2E7D32), Color(0xFF43A047), Color(0xFF66BB6A), Color(0xFF81C784), Color(0xFF00C853)];
+    hearts = [
+      for (var i = 0; i < 46; i++)
+        _GreenHeart(
+          r.nextDouble(),
+          16 + r.nextDouble() * 24,
+          r.nextDouble(),
+          6 + r.nextDouble() * 16,
+          1 + r.nextInt(2).toDouble(),
+          .15 + r.nextDouble() * .3,
+          r.nextInt(3) == 0 ? 2 : 1,
+          greens[r.nextInt(greens.length)],
+        ),
+    ];
+  }
+
+  @override
+  void dispose() {
+    ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+        child: RepaintBoundary(child: CustomPaint(painter: _HeartsPainter(ctrl, hearts), size: Size.infinite)),
+      );
+}
+
 // ----- صفحة صلوات الأنوار: صيغة واحدة + عداد سبحة -----
 class AnwarScreen extends StatefulWidget {
   final String title, prefsKey, emptyMsg;
@@ -4992,19 +5104,33 @@ class _AnwarScreenState extends State<AnwarScreen> {
   Future<void> showDone() async {
     _askingDone = true;
     HapticFeedback.heavyImpact();
+    const green = Color(0xFF2E7D32);
     final again = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (c) => AlertDialog(
-        icon: Icon(Icons.check_circle, size: 56, color: accent(c)),
-        title: const Text('ما شاء الله، أتممت جميع الصيغ', textAlign: TextAlign.center),
-        content: Text('عدّادك: $count\nهل تريد البدء من جديد؟', textAlign: TextAlign.center),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('لا')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('نعم، ابدأ من جديد')),
-        ],
-      ),
+      builder: (c) => Stack(fit: StackFit.expand, children: [
+        AlertDialog(
+          icon: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 900),
+            curve: Curves.elasticOut,
+            builder: (_, v, child) => Transform.scale(scale: v, child: child),
+            child: const Icon(Icons.favorite, size: 60, color: green),
+          ),
+          title: const Text('ألف مبروك!', textAlign: TextAlign.center, style: TextStyle(color: green, fontWeight: FontWeight.bold)),
+          content: Text(
+            'ما شاء الله، أتممت «${widget.title}»\nتقبّل الله منك وبارك فيك ورزقك شفاعة الحبيب ﷺ\n\nعدّادك: $count\nهل تريد البدء من جديد؟',
+            textAlign: TextAlign.center,
+            style: const TextStyle(height: 1.8),
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('لا')),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('نعم، ابدأ من جديد')),
+          ],
+        ),
+        const Positioned.fill(child: _HeartsRain()),
+      ]),
     );
     _askingDone = false;
     if (again == true && mounted) {
@@ -5051,7 +5177,7 @@ class _AnwarScreenState extends State<AnwarScreen> {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color.lerp(pc, Colors.black, .2)!, Color.lerp(pc, Colors.black, .55)!],
+          colors: [Color.lerp(pc, Colors.black, .2)!, Color.lerp(Color.lerp(pc, tri(context), .4)!, Colors.black, .55)!],
         ),
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: gold, width: 2),
