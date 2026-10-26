@@ -516,22 +516,21 @@ class _HomeTabState extends State<HomeTab> {
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface)),
                 ),
                 const SizedBox(height: 14),
-                Center(
-                  child: FilledButton.icon(
-                    onPressed: () => Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const TextScreen('التعريف بالكاتب', 'assets/texts/author.txt'))),
-                    icon: const Icon(Icons.person),
-                    label: const Text('التعريف بالكاتب'),
-                  ),
+                HomeActionCard(
+                  icon: Icons.person,
+                  title: 'التعريف بالكاتب',
+                  subtitle: 'تعرّف على الكاتب وسيرته',
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const TextScreen('التعريف بالكاتب', 'assets/texts/author.txt'))),
                 ),
                 const SizedBox(height: 10),
-                Center(
-                  child: FilledButton.icon(
-                    onPressed: () => Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const TextScreen('فضل الصلاة والسلام على الحبيب ﷺ', 'assets/texts/fadl_salah.txt'))),
-                    icon: const Icon(Icons.favorite),
-                    label: const Text('فضل الصلاة والسلام على الحبيب ﷺ'),
-                  ),
+                HomeActionCard(
+                  icon: Icons.favorite,
+                  title: 'فضل الصلاة والسلام على الحبيب ﷺ',
+                  subtitle: 'ما ورد في فضل الصلاة على النبي ﷺ',
+                  gold: true,
+                  onTap: () => Navigator.push(context,
+                      MaterialPageRoute(builder: (_) => const TextScreen('فضل الصلاة والسلام على الحبيب ﷺ', 'assets/texts/fadl_salah.txt'))),
                 ),
                 const SizedBox(height: 22),
                 const TodayWirdCard(),
@@ -554,6 +553,84 @@ class _HomeTabState extends State<HomeTab> {
                     }),
       ),
     ]);
+  }
+}
+
+// ----- بطاقة إجراء في الرئيسية (التعريف بالكاتب / فضل الصلاة) -----
+class HomeActionCard extends StatelessWidget {
+  final IconData icon;
+  final String title, subtitle;
+  final VoidCallback onTap;
+  final bool gold;
+  const HomeActionCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+    this.gold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = pri(context), sc = sec(context);
+    final base = gold ? Color.lerp(sc, Colors.black, .3)! : p;
+    final c1 = Color.lerp(base, Colors.white, .08)!;
+    final c2 = Color.lerp(base, Colors.black, .35)!;
+    final edge = Color.lerp(sc, Colors.white, .25)!;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [c1, c2]),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: edge.withOpacity(.8), width: 1.5),
+        boxShadow: [BoxShadow(color: base.withOpacity(.4), blurRadius: 12, offset: const Offset(0, 5))],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(22),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: onTap,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(21),
+            child: Stack(children: [
+              // أيقونة كبيرة باهتة كزخرفة في الخلفية
+              Positioned(
+                left: -14,
+                bottom: -18,
+                child: Icon(icon, size: 96, color: Colors.white.withOpacity(.09)),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
+                child: Row(children: [
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(.16),
+                      border: Border.all(color: edge, width: 1.5),
+                    ),
+                    child: Icon(icon, color: Colors.white, size: 27),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(title,
+                          style: const TextStyle(fontSize: 17.5, fontWeight: FontWeight.bold, color: Colors.white, height: 1.4)),
+                      const SizedBox(height: 3),
+                      Text(subtitle, style: TextStyle(fontSize: 12.5, color: Colors.white.withOpacity(.82))),
+                    ]),
+                  ),
+                  Icon(Icons.chevron_left, color: edge, size: 28),
+                ]),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -4963,58 +5040,74 @@ class _AnwarScreenState extends State<AnwarScreen> {
   Widget buildBox(BuildContext context, Color a) {
     final it = items[idx];
     const style = TextStyle(fontSize: 21, height: 2.0, fontWeight: FontWeight.bold);
-    // ألوان الصندوق مأخوذة من ثيم التطبيق (اللون الأساسي + لون التمييز)
-    final pc = pri(context), sc = sec(context), dark = isDark(context);
-    final bgColors = dark
-        ? [pc.withOpacity(.38), sc.withOpacity(.12)]
-        : [pc.withOpacity(.10), sc.withOpacity(.16)];
-    final borderColor = sc.withOpacity(dark ? .75 : .85);
-    final titleColor = dark ? sc : pc;
-    final textColor = dark ? Color.lerp(sc, Colors.white, .78)! : Color.lerp(pc, Colors.black, .45)!;
-    final textStyle = style.copyWith(color: textColor);
+    // صندوق عميق بألوان الثيم: خلفية داكنة متدرجة + إطار ذهبي مزدوج + نقش نجوم، والنص كريمي
+    final pc = pri(context), sc = sec(context);
+    final gold = Color.lerp(sc, Colors.white, .2)!;
+    final textStyle = style.copyWith(color: Color.lerp(Colors.white, gold, .12));
     return Container(
       width: double.infinity,
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
-        gradient: LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: bgColors),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: borderColor, width: 1.6),
-        boxShadow: [BoxShadow(color: pc.withOpacity(dark ? .25 : .15), blurRadius: 12, offset: const Offset(0, 4))],
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color.lerp(pc, Colors.black, .2)!, Color.lerp(pc, Colors.black, .55)!],
+        ),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: gold, width: 2),
+        boxShadow: [BoxShadow(color: pc.withOpacity(.45), blurRadius: 16, offset: const Offset(0, 6))],
       ),
-      child: LayoutBuilder(builder: (ctx, bc) {
-        final w = bc.maxWidth - 36;
-        final base = DefaultTextStyle.of(ctx).style.merge(style);
-        final scaler = MediaQuery.textScalerOf(ctx);
-        final parts = it.parts.isEmpty ? [it.text] : it.parts;
-        String shownFor(int p) => _cache.putIfAbsent(
-            '$idx|$p|${w.round()}|${scaler.scale(10)}', () => kashidaJustify(parts[p], base, w, scaler));
-        return SingleChildScrollView(
-          key: ValueKey(idx),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: dmath.max(0.0, bc.maxHeight - 32)),
-            child: Center(
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                if (it.title != null) ...[
-                  SizedBox(
-                    width: w,
-                    child: Text(it.title!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, height: 1.8, color: titleColor)),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: gold.withOpacity(.55), width: 1),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: Stack(fit: StackFit.expand, children: [
+            RepaintBoundary(child: CustomPaint(painter: _StarPatternPainter(gold))),
+            LayoutBuilder(builder: (ctx, bc) {
+              final w = bc.maxWidth - 36;
+              final base = DefaultTextStyle.of(ctx).style.merge(style);
+              final scaler = MediaQuery.textScalerOf(ctx);
+              final parts = it.parts.isEmpty ? [it.text] : it.parts;
+              String shownFor(int p) => _cache.putIfAbsent(
+                  '$idx|$p|${w.round()}|${scaler.scale(10)}', () => kashidaJustify(parts[p], base, w, scaler));
+              return SingleChildScrollView(
+                key: ValueKey(idx),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: dmath.max(0.0, bc.maxHeight - 32)),
+                  child: Center(
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      SizedBox(width: w * .5, child: const OrnamentDivider()),
+                      const SizedBox(height: 10),
+                      if (it.title != null) ...[
+                        SizedBox(
+                          width: w,
+                          child: Text(it.title!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, height: 1.8, color: gold)),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      for (var p = 0; p < parts.length; p++) ...[
+                        if (p > 0) const SizedBox(height: 10),
+                        SizedBox(
+                          width: w,
+                          child: Text(shownFor(p), textAlign: TextAlign.justify, textDirection: TextDirection.rtl, style: textStyle),
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      SizedBox(width: w * .5, child: const OrnamentDivider()),
+                    ]),
                   ),
-                  const SizedBox(height: 8),
-                ],
-                for (var p = 0; p < parts.length; p++) ...[
-                  if (p > 0) const SizedBox(height: 10),
-                  SizedBox(
-                    width: w,
-                    child: Text(shownFor(p), textAlign: TextAlign.justify, textDirection: TextDirection.rtl, style: textStyle),
-                  ),
-                ],
-              ]),
-            ),
-          ),
-        );
-      }),
+                ),
+              );
+            }),
+          ]),
+        ),
+      ),
     );
   }
 
