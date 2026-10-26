@@ -212,6 +212,7 @@ class Repo {
       index[b.id] = list;
     }
     favs.value = (prefs.getStringList('favs') ?? []).map(Entry.parse).whereType<Entry>().toList();
+    recordGradeLevel();
   }
 
   static bool isFav(Entry e) => favs.value.any((x) => x.key == e.key);
@@ -1368,8 +1369,10 @@ class _PrayerTabState extends State<PrayerTab> {
   // العلامة دي هي الوحيدة اللي بتغيّر مستواك، وفتح أي مستوى للفرجة مش بيغيّره
   Future<void> setMyLevel(int l) async {
     if (myLevel == l) return;
+    recordGradeLevel(); // نثبّت الأيام اللي فاتت على المستوى القديم قبل التغيير
     setState(() => myLevel = l);
     await Repo.prefs.setInt('wird_level', l);
+    recordGradeLevel();
     wirdTick.value++;
     unawaited(scheduleWirdReminders());
     if (!mounted) return;
@@ -2836,6 +2839,46 @@ class _StatsScreenState extends State<StatsScreen> {
     );
   }
 
+  // قسم التقديرات في الإحصاء التفصيلي (يوم: تقدير اليوم • أسبوع/شهر: عدد الأيام لكل تقدير)
+  List<Widget> gradeWidgets(PeriodStat s, Color a) {
+    final n = DateTime.now();
+    final today = DateTime(n.year, n.month, n.day);
+    final rows = <MapEntry<DateTime, DayGrade>>[];
+    for (final t in s.dates) {
+      if (t.isAfter(today)) continue;
+      final g = dayGrade(t);
+      if (g != null) rows.add(MapEntry(t, g));
+    }
+    if (rows.isEmpty) return const [];
+    if (mode == 0) {
+      final t = rows.first.key, g = rows.first.value;
+      return [
+        section('تقدير الورد', a),
+        kv(t == today ? 'التقدير حتى الآن' : 'تقدير اليوم', '${g.name} • ${g.shown}٪', gradeColor(g.name), bold: true),
+        kv('المستوى', levelNames[g.level - 1], a),
+      ];
+    }
+    final done = rows.where((e) => e.key != today).toList();
+    final w = <Widget>[section('تقدير الورد', a)];
+    if (done.isEmpty) {
+      w.add(kv('لا توجد أيام منتهية بعد', '—', a));
+      return w;
+    }
+    for (final name in gradeOrder) {
+      final c = done.where((e) => e.value.name == name).length;
+      if (c > 0) w.add(kv(name, '$c يوم', gradeColor(name), bold: true));
+    }
+    final avg = (done.fold<double>(0, (x, e) => x + (e.value.pct > 100 ? 100 : e.value.pct)) / done.length).round();
+    w.add(kv('متوسط النسبة', '$avg٪', a));
+    if (mode == 1) {
+      for (final e in done) {
+        final i = s.dates.indexOf(e.key);
+        w.add(kv('${weekDayNames[i]} ${fmtDate(e.key)}', '${e.value.name} • ${e.value.shown}٪', gradeColor(e.value.name)));
+      }
+    }
+    return w;
+  }
+
   Widget detailCard(Color a, Color hint) {
     final start = periodStart(anchor);
     final count = periodDays(start);
@@ -2897,6 +2940,7 @@ class _StatsScreenState extends State<StatsScreen> {
             kv('المتوسط اليومي', fmtNum(s.avg), a),
             kv('أفضل يوم', s.bestDay == null ? '—' : '${fmtDate(s.bestDay!)}  •  ${fmtNum(s.bestTotal)}', a),
           ],
+          ...gradeWidgets(s, a),
           if (s.levels.any((v) => v > 0)) ...[
             section('منهج الصلاة حسب المستوى', a),
             for (var l = 0; l < 5; l++)
@@ -2918,7 +2962,7 @@ class _StatsScreenState extends State<StatsScreen> {
               child: Center(child: Text('ما فيش صلاة متسجّلة في الفترة دي', style: TextStyle(color: hint))),
             ),
           const SizedBox(height: 10),
-          Text('ملحوظة: السبحة بتتسجّل بالتاريخ من هذا التحديث، فاللي قبله بيظهر في المجموع الكلي بس.',
+          Text('ملحوظة: السبحة بتتسجّل بالتاريخ من هذا التحديث، فاللي قبله بيظهر في المجموع الكلي بس. والتقديرات كمان بتبدأ من هذا التحديث.',
               style: TextStyle(fontSize: 11.5, height: 1.5, color: hint)),
         ]),
       ),
@@ -3156,6 +3200,33 @@ class TodayWirdCard extends StatelessWidget {
                           padding: const EdgeInsets.only(top: 4),
                           child: Text('أتممت ورد اليوم، تقبّل الله', style: TextStyle(color: a, fontWeight: FontWeight.w600)),
                         ),
+                      if (goal > 0 && cnt > 0)
+                        Builder(builder: (_) {
+                          final gn = gradeName(cnt * 100 / goal);
+                          final gc = gradeColor(gn);
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: gc.withOpacity(.14),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: gc.withOpacity(.6)),
+                              ),
+                              child: Text('التقدير حتى الآن: $gn',
+                                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: gc)),
+                            ),
+                          );
+                        }),
+                      if (goal > 0)
+                        Builder(builder: (_) {
+                          final yg = dayGrade(DateTime(n.year, n.month, n.day - 1));
+                          if (yg == null) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 5),
+                            child: Text('تقدير أمس: ${yg.name} • ${yg.shown}٪', style: TextStyle(fontSize: 12.5, color: hint)),
+                          );
+                        }),
                     ]),
                   ),
                   const Icon(Icons.chevron_left),
@@ -3361,16 +3432,104 @@ String timeLabel(int h, int m) {
   return '$h12:${m.toString().padLeft(2, '0')} ${h < 12 ? 'ص' : 'م'}';
 }
 
+// ---------- تقديرات الورد اليومي ----------
+const gradeOrder = ['امتياز', 'جيد جداً', 'جيد', 'مقبول', 'رسب'];
+
+String gradeName(double pct) =>
+    pct < 50 ? 'رسب' : (pct < 65 ? 'مقبول' : (pct < 75 ? 'جيد' : (pct < 85 ? 'جيد جداً' : 'امتياز')));
+
+Color gradeColor(String g) {
+  switch (g) {
+    case 'امتياز':
+      return const Color(0xFF2E7D32);
+    case 'جيد جداً':
+      return const Color(0xFF00897B);
+    case 'جيد':
+      return const Color(0xFF1565C0);
+    case 'مقبول':
+      return const Color(0xFFEF6C00);
+    default:
+      return const Color(0xFFC62828);
+  }
+}
+
+class DayGrade {
+  final int level, count;
+  final double pct;
+  final String name;
+  const DayGrade(this.level, this.count, this.pct, this.name);
+  int get shown => pct >= 100 ? 100 : pct.floor();
+}
+
+String _glKey(DateTime t) => 'gl_${t.year}_${t.month}_${t.day}';
+
+// بنسجّل مستوى كل يوم، عشان التقدير يتحسب على مستوى اليوم نفسه حتى لو غيّرتي المستوى بعد كده
+void recordGradeLevel() {
+  final p = Repo.prefs;
+  final l = p.getInt('wird_level') ?? 0;
+  if (l < 1 || l > 5) return;
+  final n = DateTime.now();
+  final today = DateTime(n.year, n.month, n.day);
+  DateTime? first;
+  final x = (p.getString('gl_first') ?? '').split('_');
+  if (x.length == 3) {
+    final y = int.tryParse(x[0]), m = int.tryParse(x[1]), d = int.tryParse(x[2]);
+    if (y != null && m != null && d != null) first = DateTime(y, m, d);
+  }
+  if (first == null) {
+    first = today;
+    p.setString('gl_first', '${today.year}_${today.month}_${today.day}');
+  }
+  // الأيام اللي فاتت من غير فتح التطبيق بتتسجّل بنفس المستوى (وتتقدّر بما اتسجّل فيها)
+  for (var i = 1; i <= 30; i++) {
+    final d = DateTime(today.year, today.month, today.day - i);
+    if (d.isBefore(first)) break;
+    if (!p.containsKey(_glKey(d))) p.setInt(_glKey(d), l);
+  }
+  p.setInt(_glKey(today), l);
+}
+
+// تقدير يوم معيّن (null لو اليوم ده ما اتسجّلش له مستوى)
+DayGrade? dayGrade(DateTime t) {
+  final l = Repo.prefs.getInt(_glKey(t));
+  if (l == null || l < 1 || l > 5) return null;
+  final c = wirdCountFor(l, t);
+  final pct = c * 100 / (l * 2000);
+  return DayGrade(l, c, pct, gradeName(pct));
+}
+
+// تقدير اليوم حسب نسبة ما تم من هدف المستوى:
+// أقل من 50٪ رسب • 50–64٪ مقبول • 65–74٪ جيد • 75–84٪ جيد جداً • 85٪ فأكثر امتياز
+String wirdGradeMessage(int l, int count) {
+  final goal = l * 2000;
+  final pct = count * 100 / goal;
+  final shown = pct >= 100 ? 100 : pct.floor();
+  final String head, tail;
+  if (pct < 50) {
+    head = 'لقد رسبت في الصلاة على النبي ﷺ هذا اليوم';
+    tail = 'لا تيأس، غداً فرصة جديدة فسارع بالصلاة على الحبيب ﷺ';
+  } else {
+    final g = gradeName(pct);
+    head = 'لقد حصلت على تقدير ($g) في الصلاة على النبي ﷺ هذا اليوم';
+    tail = 'تقبل الله منك، وجعلها نوراً لك';
+  }
+  return '$head\nأتممت $shown٪ من ورد المستوى ${levelNames[l - 1]} (${fmtNum(count)} من ${fmtNum(goal)} صلاة)\n$tail';
+}
+
 // تذكير ورد اليوم (في الوقت اللي المستخدم يحدده) + ملخص الأسبوع يوم الجمعة
 Future<void> scheduleWirdReminders({bool cancelFirst = true}) async {
   try {
     final p = Repo.prefs;
+    recordGradeLevel();
     if (cancelFirst) {
       for (var i = 0; i < 8; i++) {
         await _notifPlugin.cancel(id: 5000 + i);
       }
       for (var i = 0; i < 4; i++) {
         await _notifPlugin.cancel(id: 6000 + i);
+      }
+      for (var i = 0; i < 8; i++) {
+        await _notifPlugin.cancel(id: 7000 + i);
       }
     }
     final now = DateTime.now();
@@ -3396,6 +3555,26 @@ Future<void> scheduleWirdReminders({bool cancelFirst = true}) async {
         await _notifPlugin.zonedSchedule(
           id: 5000 + i,
           title: 'ورد اليوم',
+          body: msg,
+          scheduledDate: tz.TZDateTime.from(at, tz.UTC),
+          notificationDetails: reminderDetails(msg),
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        );
+      }
+    }
+
+    // 1.5) تقدير ورد اليوم في آخر اليوم (النص بيتحسب من عدد النهارده، ويتحدّث مع كل تغيير في الورد)
+    if ((p.getBool('grade_on') ?? true) && l >= 1 && l <= 5) {
+      final gh = p.getInt('grade_h') ?? 23;
+      final gm = p.getInt('grade_m') ?? 30;
+      for (var i = 0; i < 8; i++) {
+        final day = DateTime(today.year, today.month, today.day + i);
+        final at = DateTime(day.year, day.month, day.day, gh, gm);
+        if (!at.isAfter(now)) continue;
+        final msg = wirdGradeMessage(l, wirdCountFor(l, day));
+        await _notifPlugin.zonedSchedule(
+          id: 7000 + i,
+          title: 'تقدير ورد اليوم',
           body: msg,
           scheduledDate: tz.TZDateTime.from(at, tz.UTC),
           notificationDetails: reminderDetails(msg),
@@ -3472,8 +3651,8 @@ class NotifSettingsScreen extends StatefulWidget {
 }
 
 class _NotifSettingsScreenState extends State<NotifSettingsScreen> {
-  late bool on, quietOn, wirdOn, weekOn;
-  late int hours, qFrom, qTo, wH, wM;
+  late bool on, quietOn, wirdOn, weekOn, gradeOn;
+  late int hours, qFrom, qTo, wH, wM, gH, gM;
 
   @override
   void initState() {
@@ -3488,6 +3667,9 @@ class _NotifSettingsScreenState extends State<NotifSettingsScreen> {
     weekOn = p.getBool('week_rem_on') ?? true;
     wH = p.getInt('wird_rem_h') ?? 20;
     wM = p.getInt('wird_rem_m') ?? 0;
+    gradeOn = p.getBool('grade_on') ?? true;
+    gH = p.getInt('grade_h') ?? 23;
+    gM = p.getInt('grade_m') ?? 30;
   }
 
   // نحفظ الإعدادات ونعيد جدولة الإشعارات
@@ -3502,7 +3684,10 @@ class _NotifSettingsScreenState extends State<NotifSettingsScreen> {
     await p.setBool('week_rem_on', weekOn);
     await p.setInt('wird_rem_h', wH);
     await p.setInt('wird_rem_m', wM);
-    if (on || wirdOn || weekOn) await askNotifPermission();
+    await p.setBool('grade_on', gradeOn);
+    await p.setInt('grade_h', gH);
+    await p.setInt('grade_m', gM);
+    if (on || wirdOn || weekOn || gradeOn) await askNotifPermission();
     await scheduleReminders();
   }
 
@@ -3619,6 +3804,42 @@ class _NotifSettingsScreenState extends State<NotifSettingsScreen> {
                     });
                     apply();
                   }
+                },
+              ),
+          ]),
+        ),
+        Card(
+          child: Column(children: [
+            SwitchListTile(
+              title: const Text('تقدير ورد اليوم', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+              subtitle: const Text(
+                  'في آخر اليوم يصلك إشعار بتقديرك حسب نسبة ما أتممته من ورد مستواك: رسب (أقل من 50٪)، مقبول (50–64٪)، جيد (65–74٪)، جيد جداً (75–84٪)، امتياز (85٪ فأكثر)'),
+              value: gradeOn,
+              onChanged: (v) {
+                setState(() => gradeOn = v);
+                apply();
+              },
+            ),
+            if (gradeOn)
+              ListTile(
+                leading: const Icon(Icons.access_time),
+                title: const Text('وقت إشعار التقدير'),
+                trailing: Text(timeLabel(gH, gM), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                onTap: () async {
+                  final t = await showTimePicker(context: context, initialTime: TimeOfDay(hour: gH, minute: gM));
+                  if (t == null || !mounted) return;
+                  if (t.hour < 18) {
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(const SnackBar(
+                          content: Text('اختر وقتاً في آخر اليوم، بين 6 م و 11:59 م', textAlign: TextAlign.center)));
+                    return;
+                  }
+                  setState(() {
+                    gH = t.hour;
+                    gM = t.minute;
+                  });
+                  apply();
                 },
               ),
           ]),
