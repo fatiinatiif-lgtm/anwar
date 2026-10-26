@@ -1326,11 +1326,33 @@ class PrayerTab extends StatefulWidget {
 class _PrayerTabState extends State<PrayerTab> {
   bool auto = true;
   late int sy, sm, sd;
+  int myLevel = 0; // المستوى اللي اختارته المستخدمة بنفسها (0 = لسه ما اختارتش)
   @override
   void initState() {
     super.initState();
     final n = DateTime.now();
     sy = n.year; sm = n.month; sd = n.day;
+    final l = Repo.prefs.getInt('wird_level') ?? 0;
+    myLevel = (l >= 1 && l <= 5) ? l : 0;
+  }
+
+  // العلامة دي هي الوحيدة اللي بتغيّر مستواك، وفتح أي مستوى للفرجة مش بيغيّره
+  Future<void> setMyLevel(int l) async {
+    if (myLevel == l) return;
+    setState(() => myLevel = l);
+    await Repo.prefs.setInt('wird_level', l);
+    wirdTick.value++;
+    unawaited(scheduleWirdReminders());
+    if (!mounted) return;
+    HapticFeedback.selectionClick();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text('تم اختيار المستوى ${levelNames[l - 1]} كمستواك',
+            textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: Colors.white)),
+        backgroundColor: pri(context),
+        duration: const Duration(seconds: 2),
+      ));
   }
 
   void open(int level) {
@@ -1389,14 +1411,46 @@ class _PrayerTabState extends State<PrayerTab> {
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: accent(context))),
         ),
       ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 2, 4, 2),
+        child: Text('علّم على مستواك بالعلامة ✓ على الجنب، ومش هيتغيّر إلا لما تختار مستوى تاني بنفسك. فتح أي مستوى للفرجة مش بيغيّر مستواك.',
+            style: TextStyle(fontSize: 12.5, height: 1.6, color: Theme.of(context).hintColor)),
+      ),
       for (var l = 1; l <= 5; l++)
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 5),
-          child: FilledButton(
-            style: FilledButton.styleFrom(padding: const EdgeInsets.all(16), backgroundColor: l.isOdd ? pri(context) : Color.lerp(sec(context), Colors.black, .3)),
-            onPressed: () => open(l),
-            child: Text('المستوى ${levelNames[l - 1]}  •  ${l * 2000} صلاة يومياً', style: const TextStyle(fontSize: 17)),
-          ),
+          child: Row(children: [
+            Expanded(
+              child: FilledButton(
+                style: FilledButton.styleFrom(padding: const EdgeInsets.all(16), backgroundColor: l.isOdd ? pri(context) : Color.lerp(sec(context), Colors.black, .3)),
+                onPressed: () => open(l),
+                child: Text('المستوى ${levelNames[l - 1]}  •  ${l * 2000} صلاة يومياً', style: const TextStyle(fontSize: 17)),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Tooltip(
+              message: myLevel == l ? 'هذا مستواك' : 'اختيار هذا المستوى كمستواي',
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () => setMyLevel(l),
+                child: SizedBox(
+                  width: 56,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(myLevel == l ? Icons.check_circle : Icons.radio_button_unchecked,
+                          size: 32, color: myLevel == l ? accent(context) : Theme.of(context).hintColor),
+                      Text(myLevel == l ? 'مستواي' : 'اختيار',
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: myLevel == l ? FontWeight.bold : FontWeight.normal,
+                              color: myLevel == l ? accent(context) : Theme.of(context).hintColor)),
+                    ]),
+                  ),
+                ),
+              ),
+            ),
+          ]),
         ),
       const SizedBox(height: 10),
       Padding(
@@ -1484,7 +1538,6 @@ class _LevelScreenState extends State<LevelScreen> {
     y = widget.y;
     m = widget.m;
     done = loadDone();
-    Repo.prefs.setInt('wird_level', widget.level);
     WidgetsBinding.instance.addPostFrameCallback((_) => wirdTick.value++);
   }
 
@@ -1693,7 +1746,6 @@ class _WirdDayScreenState extends State<WirdDayScreen> {
   @override
   void initState() {
     super.initState();
-    Repo.prefs.setInt('wird_level', widget.level);
     parts = [0, 0, 0, 0];
     final raw = Repo.prefs.getString(pkey);
     if (raw != null) {
@@ -2128,6 +2180,30 @@ const sebhaFormulas = [
 ];
 const sebhaTargets = [33, 100, 300, 500, 1000];
 
+
+// ---------- سجل السبحة اليومي (بالتاريخ والصيغة) ----------
+String sebhaDayKey(DateTime t) => 'sd_${t.year}_${t.month}_${t.day}';
+
+List<int> sebhaDay(DateTime t) {
+  final out = List<int>.filled(sebhaFormulas.length, 0);
+  final raw = Repo.prefs.getString(sebhaDayKey(t));
+  if (raw != null) {
+    final xs = raw.split(',');
+    for (var i = 0; i < out.length && i < xs.length; i++) {
+      out[i] = int.tryParse(xs[i]) ?? 0;
+    }
+  }
+  return out;
+}
+
+void logSebha(int formula, [int n = 1]) {
+  final now = DateTime.now();
+  final l = sebhaDay(now);
+  if (formula < 0 || formula >= l.length) return;
+  l[formula] += n;
+  Repo.prefs.setString(sebhaDayKey(now), l.join(','));
+}
+
 class SebhaScreen extends StatefulWidget {
   const SebhaScreen({super.key});
   @override
@@ -2162,6 +2238,7 @@ class _SebhaScreenState extends State<SebhaScreen> {
   void tap() {
     HapticFeedback.lightImpact();
     var finished = false;
+    logSebha(sel);
     setState(() {
       counts[sel]++;
       if (counts[sel] >= target) {
@@ -2478,6 +2555,87 @@ WirdData loadWirdData() {
   return data;
 }
 
+
+// ---------- الإحصاء التفصيلي: يوم / أسبوع / شهر ----------
+const wirdSlotNames = ['بعد الفجر', 'بعد الظهر', 'بعد العصر', 'بعد المغرب'];
+const weekDayNames = ['السبت', 'الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
+
+class DayStat {
+  final List<int> slots, levels, sebha;
+  final bool done;
+  DayStat(this.slots, this.levels, this.sebha, this.done);
+  int get wird => levels.fold<int>(0, (a, b) => a + b);
+  int get sebhaTotal => sebha.fold<int>(0, (a, b) => a + b);
+  int get total => wird + sebhaTotal;
+}
+
+DayStat dayStat(DateTime t) {
+  final p = Repo.prefs;
+  final slots = [0, 0, 0, 0];
+  final levels = List<int>.filled(5, 0);
+  var done = false;
+  for (var l = 1; l <= 5; l++) {
+    var c = 0;
+    final raw = p.getString('pw${l}_${t.year}_${t.month}_${t.day}');
+    if (raw != null) {
+      final xs = raw.split(',');
+      for (var i = 0; i < xs.length; i++) {
+        final v = int.tryParse(xs[i]) ?? 0;
+        c += v;
+        if (i < 4) slots[i] += v;
+      }
+    }
+    final isDone = (p.getStringList('p${l}_${t.year}_${t.month}') ?? const <String>[]).contains('${t.day}');
+    if (isDone) done = true;
+    final goal = l * 2000;
+    levels[l - 1] = isDone ? (c > goal ? c : goal) : c;
+  }
+  return DayStat(slots, levels, sebhaDay(t), done);
+}
+
+class PeriodStat {
+  int wird = 0, sebha = 0, doneDays = 0, activeDays = 0, elapsed = 0, bestTotal = 0;
+  DateTime? bestDay;
+  final slots = [0, 0, 0, 0];
+  final levels = List<int>.filled(5, 0);
+  final formulas = List<int>.filled(sebhaFormulas.length, 0);
+  final days = <DayStat>[];
+  final dates = <DateTime>[];
+  int get total => wird + sebha;
+  int get avg => elapsed == 0 ? 0 : (total / elapsed).round();
+}
+
+PeriodStat periodStat(DateTime from, int count) {
+  final s = PeriodStat();
+  final n = DateTime.now();
+  final today = DateTime(n.year, n.month, n.day);
+  for (var i = 0; i < count; i++) {
+    final t = DateTime(from.year, from.month, from.day + i);
+    final d = dayStat(t);
+    s.days.add(d);
+    s.dates.add(t);
+    s.wird += d.wird;
+    s.sebha += d.sebhaTotal;
+    if (d.done) s.doneDays++;
+    if (d.total > 0) s.activeDays++;
+    if (!t.isAfter(today)) s.elapsed++;
+    if (d.total > s.bestTotal) {
+      s.bestTotal = d.total;
+      s.bestDay = t;
+    }
+    for (var k = 0; k < 4; k++) {
+      s.slots[k] += d.slots[k];
+    }
+    for (var k = 0; k < 5; k++) {
+      s.levels[k] += d.levels[k];
+    }
+    for (var k = 0; k < s.formulas.length; k++) {
+      s.formulas[k] += d.sebha[k];
+    }
+  }
+  return s;
+}
+
 class StatsScreen extends StatefulWidget {
   const StatsScreen({super.key});
   @override
@@ -2487,6 +2645,8 @@ class StatsScreen extends StatefulWidget {
 class _StatsScreenState extends State<StatsScreen> {
   late int sy, sm;
   final sc = ScrollController();
+  int mode = 0; // 0 يوم، 1 أسبوع، 2 شهر
+  late DateTime anchor;
 
   @override
   void initState() {
@@ -2494,6 +2654,200 @@ class _StatsScreenState extends State<StatsScreen> {
     final n = DateTime.now();
     sy = n.year;
     sm = n.month;
+    anchor = DateTime(n.year, n.month, n.day);
+  }
+
+  DateTime periodStart(DateTime a) {
+    if (mode == 0) return a;
+    if (mode == 1) return DateTime(a.year, a.month, a.day - ((a.weekday + 1) % 7)); // الأسبوع بيبدأ السبت
+    return DateTime(a.year, a.month, 1);
+  }
+
+  int periodDays(DateTime start) => mode == 0 ? 1 : (mode == 1 ? 7 : DateTime(start.year, start.month + 1, 0).day);
+
+  DateTime shifted(int dir) {
+    if (mode == 0) return DateTime(anchor.year, anchor.month, anchor.day + dir);
+    if (mode == 1) return DateTime(anchor.year, anchor.month, anchor.day + 7 * dir);
+    return DateTime(anchor.year, anchor.month + dir, 1);
+  }
+
+  bool canMove(int dir) {
+    final n = DateTime.now();
+    return !periodStart(shifted(dir)).isAfter(DateTime(n.year, n.month, n.day));
+  }
+
+  void move(int dir) {
+    if (!canMove(dir)) return;
+    setState(() => anchor = shifted(dir));
+  }
+
+  String fmtDate(DateTime t) => '${t.day} ${months[t.month - 1]}';
+
+  String periodTitle(DateTime start, int count) {
+    final n = DateTime.now();
+    final today = DateTime(n.year, n.month, n.day);
+    if (mode == 0) {
+      final pre = start == today ? 'اليوم — ' : (start == DateTime(today.year, today.month, today.day - 1) ? 'أمس — ' : '');
+      return '$pre${fmtDate(start)} ${start.year}';
+    }
+    if (mode == 1) {
+      final end = DateTime(start.year, start.month, start.day + 6);
+      final cur = !today.isBefore(start) && !today.isAfter(end);
+      return '${cur ? 'هذا الأسبوع\n' : ''}${fmtDate(start)} ← ${fmtDate(end)}';
+    }
+    return '${months[start.month - 1]} ${start.year}';
+  }
+
+  Widget kv(String label, String v, Color a, {bool bold = false}) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(children: [
+          Expanded(child: Text(label, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14.5))),
+          const SizedBox(width: 8),
+          Text(v, style: TextStyle(fontSize: 15.5, fontWeight: bold ? FontWeight.bold : FontWeight.w600, color: a)),
+        ]),
+      );
+
+  Widget section(String title, Color a) => Padding(
+        padding: const EdgeInsets.only(top: 14, bottom: 2),
+        child: Text(title, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: a)),
+      );
+
+  Widget weekBars(PeriodStat s, Color a, Color p) {
+    var mx = 1;
+    for (final d in s.days) {
+      if (d.total > mx) mx = d.total;
+    }
+    final n = DateTime.now();
+    final today = DateTime(n.year, n.month, n.day);
+    return SizedBox(
+      height: 150,
+      child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        for (var i = 0; i < s.days.length; i++)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: Column(children: [
+                SizedBox(
+                  height: 12,
+                  child: Text(s.days[i].total == 0 ? '' : fmtNum(s.days[i].total),
+                      softWrap: false, overflow: TextOverflow.visible, style: const TextStyle(fontSize: 9)),
+                ),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: FractionallySizedBox(
+                      heightFactor: s.days[i].total == 0 ? 0.0 : (s.days[i].total / mx < 0.04 ? 0.04 : s.days[i].total / mx),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: s.days[i].done ? p : a.withOpacity(.55),
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  height: 14,
+                  child: Text(weekDayNames[i],
+                      softWrap: false,
+                      overflow: TextOverflow.visible,
+                      style: TextStyle(fontSize: 9.5, fontWeight: s.dates[i] == today ? FontWeight.bold : FontWeight.normal)),
+                ),
+              ]),
+            ),
+          ),
+      ]),
+    );
+  }
+
+  Widget detailCard(Color a, Color hint) {
+    final start = periodStart(anchor);
+    final count = periodDays(start);
+    final s = periodStat(start, count);
+    final single = mode == 0;
+    final slotSum = s.slots.fold<int>(0, (x, y) => x + y);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('إحصاء تفصيلي', textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: a)),
+          const SizedBox(height: 10),
+          SegmentedButton<int>(
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(value: 0, label: Text('اليوم')),
+              ButtonSegment(value: 1, label: Text('الأسبوع')),
+              ButtonSegment(value: 2, label: Text('الشهر')),
+            ],
+            selected: {mode},
+            onSelectionChanged: (v) => setState(() {
+              mode = v.first;
+              final n = DateTime.now();
+              anchor = DateTime(n.year, n.month, n.day);
+            }),
+          ),
+          const SizedBox(height: 8),
+          Row(children: [
+            TextButton(
+              onPressed: canMove(-1) ? () => move(-1) : null,
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.chevron_left), Text('السابق')]),
+            ),
+            Expanded(
+              child: Text(periodTitle(start, count),
+                  textAlign: TextAlign.center, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, height: 1.5)),
+            ),
+            TextButton(
+              onPressed: canMove(1) ? () => move(1) : null,
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [Text('التالي'), Icon(Icons.chevron_right)]),
+            ),
+          ]),
+          const SizedBox(height: 4),
+          Center(child: Text(fmtNum(s.total), style: TextStyle(fontSize: 34, fontWeight: FontWeight.bold, color: a))),
+          Center(child: Text('صلاة على الحبيب ﷺ', style: TextStyle(color: hint))),
+          if (mode == 1) ...[
+            const SizedBox(height: 12),
+            weekBars(s, a, pri(context)),
+            const SizedBox(height: 4),
+            Center(child: Text('العمود الغامق يعني اليوم اتم', style: TextStyle(fontSize: 12, color: hint))),
+          ],
+          section('الملخص', a),
+          kv('منهج الصلاة', fmtNum(s.wird), a),
+          kv('السبحة', fmtNum(s.sebha), a),
+          if (single)
+            kv('حالة ورد اليوم', s.doneDays > 0 ? 'تم ✓' : 'لم يكتمل', a)
+          else ...[
+            kv('أيام الورد المكتملة', '${s.doneDays} من $count', a),
+            kv('أيام فيها صلاة', '${s.activeDays}', a),
+            kv('المتوسط اليومي', fmtNum(s.avg), a),
+            kv('أفضل يوم', s.bestDay == null ? '—' : '${fmtDate(s.bestDay!)}  •  ${fmtNum(s.bestTotal)}', a),
+          ],
+          if (s.levels.any((v) => v > 0)) ...[
+            section('منهج الصلاة حسب المستوى', a),
+            for (var l = 0; l < 5; l++)
+              if (s.levels[l] > 0) kv('المستوى ${levelNames[l]}', fmtNum(s.levels[l]), a),
+          ],
+          if (slotSum > 0) ...[
+            section('منهج الصلاة حسب الدفعة', a),
+            for (var k = 0; k < 4; k++)
+              if (s.slots[k] > 0) kv(wirdSlotNames[k], fmtNum(s.slots[k]), a),
+          ],
+          if (s.formulas.any((v) => v > 0)) ...[
+            section('السبحة حسب الصيغة', a),
+            for (var k = 0; k < s.formulas.length; k++)
+              if (s.formulas[k] > 0) kv(sebhaFormulas[k], fmtNum(s.formulas[k]), a),
+          ],
+          if (s.total == 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 14),
+              child: Center(child: Text('ما فيش صلاة متسجّلة في الفترة دي', style: TextStyle(color: hint))),
+            ),
+          const SizedBox(height: 10),
+          Text('ملحوظة: السبحة بتتسجّل بالتاريخ من هذا التحديث، فاللي قبله بيظهر في المجموع الكلي بس.',
+              style: TextStyle(fontSize: 11.5, height: 1.5, color: hint)),
+        ]),
+      ),
+    );
   }
 
   @override
@@ -2603,6 +2957,7 @@ class _StatsScreenState extends State<StatsScreen> {
             ]),
           ),
         ),
+        detailCard(a, hint),
         Card(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(8, 8, 8, 14),
