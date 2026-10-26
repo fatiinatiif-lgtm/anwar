@@ -3302,7 +3302,8 @@ const anwarFiles = [
 class AnwarItem {
   final String? title;
   final String text;
-  const AnwarItem(this.title, this.text);
+  final List<String> parts; // لو فيها أكتر من صيغة بتتعرض كلها في نفس الصندوق
+  const AnwarItem(this.title, this.text, [this.parts = const []]);
 }
 
 List<AnwarItem>? _anwarCache;
@@ -3336,6 +3337,48 @@ Future<List<AnwarItem>> loadAnwar() async {
     }
   }
   if (items.isNotEmpty) _anwarCache = items;
+  return items;
+}
+
+// ---------- الصلوات المباركات على سيد السادات (3 صيغ في الصندوق) ----------
+const mubarakatFile = 'assets/texts/mubarakat.txt';
+const _mubPerBox = 3;
+List<AnwarItem>? _mubCache;
+
+// كل سطر = صيغة. سطر "حرف ..." = عنوان القسم. كل مقطع بيبدأ بـ "اللهم" بيتقسم مجموعات من 3 صيغ
+Future<List<AnwarItem>> loadMubarakat() async {
+  if (_mubCache != null) return _mubCache!;
+  String raw;
+  try {
+    raw = await rootBundle.loadString(mubarakatFile);
+  } catch (_) {
+    return const [];
+  }
+  final items = <AnwarItem>[];
+  String? title;
+  var stanza = <String>[];
+  void flush() {
+    for (var i = 0; i < stanza.length; i += _mubPerBox) {
+      final part = stanza.sublist(i, dmath.min(i + _mubPerBox, stanza.length));
+      items.add(AnwarItem(title, part.first, part));
+    }
+    stanza = <String>[];
+  }
+
+  for (final line in raw.replaceAll('\uFEFF', '').split(RegExp(r'\r?\n'))) {
+    final t = line.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (t.isEmpty || t.startsWith('((')) continue;
+    final n = norm(t);
+    if (n.startsWith('حرف ') || n.startsWith('صيغه الحروف')) {
+      flush();
+      title = t;
+      continue;
+    }
+    if (n.startsWith('اللهم')) flush();
+    stanza.add(t);
+  }
+  flush();
+  if (items.isNotEmpty) _mubCache = items;
   return items;
 }
 
@@ -3515,6 +3558,18 @@ class AnwarMenuScreen extends StatelessWidget {
             onTap: () {
               if (k == 0) {
                 Navigator.push(context, MaterialPageRoute(builder: (_) => const AnwarScreen()));
+              } else if (k == 1) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => AnwarScreen(
+                      title: titles[1],
+                      prefsKey: 'mub',
+                      loader: loadMubarakat,
+                      emptyMsg: 'لم يتم العثور على ملف النص (mubarakat.txt داخل assets/texts)',
+                    ),
+                  ),
+                );
               } else {
                 ScaffoldMessenger.of(context)
                   ..hideCurrentSnackBar()
@@ -3544,7 +3599,15 @@ class AnwarMenuScreen extends StatelessWidget {
 
 // ----- صفحة صلوات الأنوار: صيغة واحدة + عداد سبحة -----
 class AnwarScreen extends StatefulWidget {
-  const AnwarScreen({super.key});
+  final String title, prefsKey, emptyMsg;
+  final Future<List<AnwarItem>> Function() loader;
+  const AnwarScreen({
+    super.key,
+    this.title = 'صلوات الأنوار على سيد الأبرار',
+    this.prefsKey = 'anwar',
+    this.emptyMsg = 'لم يتم العثور على ملفات النصوص (anwar_1.txt و anwar_2.txt و anwar_3.txt داخل assets/texts)',
+    this.loader = loadAnwar,
+  });
   @override
   State<AnwarScreen> createState() => _AnwarScreenState();
 }
@@ -3558,9 +3621,9 @@ class _AnwarScreenState extends State<AnwarScreen> {
   @override
   void initState() {
     super.initState();
-    idx = Repo.prefs.getInt('anwar_idx') ?? 0;
-    count = Repo.prefs.getInt('anwar_count') ?? 0;
-    loadAnwar().then((l) {
+    idx = Repo.prefs.getInt('${widget.prefsKey}_idx') ?? 0;
+    count = Repo.prefs.getInt('${widget.prefsKey}_count') ?? 0;
+    widget.loader().then((l) {
       if (!mounted) return;
       setState(() {
         items = l;
@@ -3571,8 +3634,8 @@ class _AnwarScreenState extends State<AnwarScreen> {
   }
 
   void save() {
-    Repo.prefs.setInt('anwar_idx', idx);
-    Repo.prefs.setInt('anwar_count', count);
+    Repo.prefs.setInt('${widget.prefsKey}_idx', idx);
+    Repo.prefs.setInt('${widget.prefsKey}_count', count);
   }
 
   void go(int d) {
@@ -3626,8 +3689,9 @@ class _AnwarScreenState extends State<AnwarScreen> {
         final w = bc.maxWidth - 36;
         final base = DefaultTextStyle.of(ctx).style.merge(style);
         final scaler = MediaQuery.textScalerOf(ctx);
-        final key = '$idx|${w.round()}|${scaler.scale(10)}';
-        final shown = _cache.putIfAbsent(key, () => kashidaJustify(it.text, base, w, scaler));
+        final parts = it.parts.isEmpty ? [it.text] : it.parts;
+        String shownFor(int p) => _cache.putIfAbsent(
+            '$idx|$p|${w.round()}|${scaler.scale(10)}', () => kashidaJustify(parts[p], base, w, scaler));
         return SingleChildScrollView(
           key: ValueKey(idx),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
@@ -3644,10 +3708,13 @@ class _AnwarScreenState extends State<AnwarScreen> {
                   ),
                   const SizedBox(height: 8),
                 ],
-                SizedBox(
-                  width: w,
-                  child: Text(shown, textAlign: TextAlign.justify, textDirection: TextDirection.rtl, style: style),
-                ),
+                for (var p = 0; p < parts.length; p++) ...[
+                  if (p > 0) const SizedBox(height: 10),
+                  SizedBox(
+                    width: w,
+                    child: Text(shownFor(p), textAlign: TextAlign.justify, textDirection: TextDirection.rtl, style: style),
+                  ),
+                ],
               ]),
             ),
           ),
@@ -3665,7 +3732,7 @@ class _AnwarScreenState extends State<AnwarScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('صلوات الأنوار على سيد الأبرار', style: TextStyle(fontSize: 17)),
+          title: Text(widget.title, style: const TextStyle(fontSize: 17)),
           actions: [IconButton(icon: const Icon(Icons.refresh), tooltip: 'البداية من جديد', onPressed: confirmReset)],
         ),
         body: SafeArea(
@@ -3675,8 +3742,7 @@ class _AnwarScreenState extends State<AnwarScreen> {
                   ? const Center(
                       child: Padding(
                         padding: EdgeInsets.all(24),
-                        child: Text('لم يتم العثور على ملفات النصوص (anwar_1.txt و anwar_2.txt و anwar_3.txt داخل assets/texts)',
-                            textAlign: TextAlign.center),
+                        child: Text(widget.emptyMsg, textAlign: TextAlign.center),
                       ),
                     )
                   : Padding(
