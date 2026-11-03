@@ -711,60 +711,312 @@ String booksCountText(int n) {
 
 class BooksTab extends StatelessWidget {
   const BooksTab({super.key});
+
   @override
-  Widget build(BuildContext context) => ListView(
-        padding: const EdgeInsets.all(12),
-        children: [for (final sec in bookSections) SectionCard(sec)],
+  Widget build(BuildContext context) {
+    var total = 0;
+    for (final s in bookSections) {
+      total += sectionBooks(s).length + (s.title == sectionSalat.title ? 1 : 0);
+    }
+    return PageBackdrop(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(14, 6, 14, 24),
+        children: [
+          _LibraryHeader(total: total),
+          for (var i = 0; i < bookSections.length; i++) _Reveal(delay: i, child: SectionCard(bookSections[i])),
+        ],
+      ),
+    );
+  }
+}
+
+// ظهور هادئ للبطاقات: تلاشي + صعود خفيف، كل بطاقة بعد اللي قبلها
+class _Reveal extends StatelessWidget {
+  final int delay;
+  final Widget child;
+  const _Reveal({required this.delay, required this.child});
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: Duration(milliseconds: 420 + 140 * delay),
+        curve: Curves.easeOutCubic,
+        builder: (_, v, c) => Opacity(
+          opacity: v.clamp(0.0, 1.0),
+          child: Transform.translate(offset: Offset(0, 22 * (1 - v)), child: c),
+        ),
+        child: child,
       );
 }
 
-class SectionCard extends StatelessWidget {
-  final BookSection sec;
-  const SectionCard(this.sec, {super.key});
+// ترويسة المكتبة: ميدالية ذهبية بين خطّين متلاشيين + عنوان وعدد الأقسام والكتب
+class _LibraryHeader extends StatelessWidget {
+  final int total;
+  const _LibraryHeader({required this.total});
+
   @override
   Widget build(BuildContext context) {
-    final list = sectionBooks(sec);
-    final a = accent(context);
-    final hint = Theme.of(context).hintColor;
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 7),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SectionScreen(sec))),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              CircleAvatar(backgroundColor: a.withOpacity(.15), child: Icon(sec.icon, color: a)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(sec.title, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
-                  Text(booksCountText(list.length + (sec.title == sectionSalat.title ? 1 : 0)), style: TextStyle(color: hint)),
+    final pc = pri(context), tc = tri(context);
+    final gold = Color.lerp(sec(context), Colors.white, .15)!;
+    Widget fade(bool solidOnRight) => Expanded(
+          child: Container(
+            height: 1.4,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: solidOnRight ? [gold.withOpacity(0), gold] : [gold, gold.withOpacity(0)],
+              ),
+            ),
+          ),
+        );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 10, 6, 14),
+      child: Column(children: [
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: Row(children: [
+            fade(true),
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 12),
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                  colors: [Color.lerp(pc, tc, .3)!, Color.lerp(pc, Colors.black, .5)!],
+                ),
+                border: Border.all(color: gold, width: 1.8),
+                boxShadow: [BoxShadow(color: pc.withOpacity(.45), blurRadius: 14, offset: const Offset(0, 5))],
+              ),
+              child: Icon(Icons.local_library, color: gold, size: 29),
+            ),
+            fade(false),
+          ]),
+        ),
+        const SizedBox(height: 8),
+        Text('المكتبة',
+            style: TextStyle(fontSize: 30, height: 1.3, fontWeight: FontWeight.bold, color: accent(context))),
+        Text('${bookSections.length} أقسام  •  ${booksCountText(total)}',
+            style: TextStyle(fontSize: 13.5, color: Theme.of(context).hintColor)),
+      ]),
+    );
+  }
+}
+
+class SectionCard extends StatelessWidget {
+  final BookSection bs;
+  const SectionCard(this.bs, {super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final list = sectionBooks(bs);
+    final isSalat = bs.title == sectionSalat.title;
+    final extra = isSalat ? 1 : 0;
+    final count = list.length + extra;
+    final pc = pri(context), tc = tri(context), sc = sec(context);
+    final edge = Color.lerp(sc, Colors.white, .25)!;
+    final c1 = Color.lerp(Color.lerp(pc, Colors.white, .06)!, tc, .15)!;
+    final c2 = Color.lerp(Color.lerp(pc, tc, .3)!, Colors.black, .5)!;
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [c1, c2]),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: edge, width: 1.8),
+        boxShadow: [BoxShadow(color: pc.withOpacity(.45), blurRadius: 16, offset: const Offset(0, 6))],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(5),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(21),
+            border: Border.all(color: edge.withOpacity(.5), width: 1),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(21),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(21),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SectionScreen(bs))),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Stack(children: [
+                  Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: _StarPatternPainter(edge)))),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                    child: Column(children: [
+                      Row(children: [
+                        Container(
+                          width: 52,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withOpacity(.14),
+                            border: Border.all(color: edge, width: 1.6),
+                          ),
+                          child: Icon(bs.icon, color: Colors.white, size: 26),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(bs.title,
+                                style: const TextStyle(fontSize: 18.5, height: 1.4, fontWeight: FontWeight.bold, color: Colors.white)),
+                            const SizedBox(height: 3),
+                            Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.menu_book, size: 15, color: edge),
+                              const SizedBox(width: 5),
+                              Text(booksCountText(count),
+                                  style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(.82))),
+                            ]),
+                          ]),
+                        ),
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: edge.withOpacity(.7), width: 1.2)),
+                          child: Icon(Icons.chevron_left, color: edge, size: 24),
+                        ),
+                      ]),
+                      const SizedBox(height: 12),
+                      FractionallySizedBox(widthFactor: .6, child: const OrnamentDivider()),
+                      const SizedBox(height: 12),
+                      _shelf(list, isSalat, extra, edge, sc, pc, tc),
+                    ]),
+                  ),
                 ]),
               ),
-              const Icon(Icons.chevron_left),
-            ]),
-            const SizedBox(height: 12),
-            Wrap(spacing: 8, runSpacing: 8, children: [
-              if (sec.title == sectionSalat.title)
-                Container(
-                  width: 46,
-                  height: 64,
-                  decoration: BoxDecoration(color: a.withOpacity(.15), borderRadius: BorderRadius.circular(5)),
-                  child: Icon(Icons.auto_awesome, color: a),
-                ),
-              for (final b in list.take(5))
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(5),
-                  child: Image.asset(b.cover, width: 46, height: 64, fit: BoxFit.cover, cacheWidth: 140),
-                ),
-            ]),
-          ]),
+            ),
+          ),
         ),
       ),
     );
   }
+
+  // رفّ الكتب: محراب غامق فيه الأغلفة واقفة على لوح ذهبي
+  Widget _shelf(List<Book> list, bool isSalat, int extra, Color edge, Color sc, Color pc, Color tc) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(.26),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+          bottomLeft: Radius.circular(8),
+          bottomRight: Radius.circular(8),
+        ),
+        border: Border.all(color: edge.withOpacity(.35), width: 1),
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(19),
+          topRight: Radius.circular(19),
+          bottomLeft: Radius.circular(7),
+          bottomRight: Radius.circular(7),
+        ),
+        child: LayoutBuilder(builder: (ctx, bc) {
+          const slots = 5;
+          const gap = 8.0;
+          final aw = bc.maxWidth - 24;
+          final cw = ((aw - gap * (slots - 1)) / slots).clamp(40.0, 72.0).toDouble();
+          final ch = cw * 1.42;
+          final items = <Widget>[
+            if (isSalat) _AnwarMini(w: cw, h: ch, pc: pc, tc: tc, edge: edge),
+            for (final b in list.take(slots - extra)) _MiniCover(b.cover, cw, ch),
+          ];
+          return Column(mainAxisSize: MainAxisSize.min, children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+                for (var i = 0; i < items.length; i++) ...[
+                  if (i > 0) const SizedBox(width: gap),
+                  items[i],
+                ],
+              ]),
+            ),
+            // لوح الرفّ
+            Container(
+              height: 10,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color.lerp(sc, Colors.white, .4)!, sc, Color.lerp(sc, Colors.black, .45)!],
+                ),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(.4), blurRadius: 4, offset: const Offset(0, 2))],
+              ),
+            ),
+          ]);
+        }),
+      ),
+    );
+  }
+}
+
+// غلاف كتاب صغير على الرفّ: ظل + تظليل عند كعب الكتاب + لمعة خفيفة
+class _MiniCover extends StatelessWidget {
+  final String asset;
+  final double w, h;
+  const _MiniCover(this.asset, this.w, this.h);
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: w,
+        height: h,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.55), blurRadius: 7, offset: const Offset(0, 3))],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Stack(fit: StackFit.expand, children: [
+            Image.asset(
+              asset,
+              fit: BoxFit.cover,
+              cacheWidth: 220,
+              errorBuilder: (_, __, ___) => Container(
+                color: Colors.white.withOpacity(.12),
+                child: const Icon(Icons.menu_book, color: Colors.white54),
+              ),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerRight,
+                  end: Alignment.centerLeft,
+                  colors: [Colors.black.withOpacity(.35), Colors.transparent, Colors.white.withOpacity(.10)],
+                  stops: const [0, .22, 1],
+                ),
+              ),
+            ),
+          ]),
+        ),
+      );
+}
+
+// غلاف «صلوات الأنوار» المصغّر (بدل الصورة): تدرّج بألوان الثيم وإطار ذهبي ونجمة
+class _AnwarMini extends StatelessWidget {
+  final double w, h;
+  final Color pc, tc, edge;
+  const _AnwarMini({required this.w, required this.h, required this.pc, required this.tc, required this.edge});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: w,
+        height: h,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          gradient: LinearGradient(
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
+            colors: [Color.lerp(pc, tc, .45)!, Color.lerp(pc, Colors.black, .45)!],
+          ),
+          border: Border.all(color: edge, width: 1.3),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(.55), blurRadius: 7, offset: const Offset(0, 3))],
+        ),
+        child: Icon(Icons.auto_awesome, color: edge, size: w * .46),
+      );
 }
 
 class SectionScreen extends StatelessWidget {
@@ -2208,39 +2460,22 @@ class _WirdDayScreenState extends State<WirdDayScreen> {
             Expanded(
               child: LayoutBuilder(builder: (_, bc) {
                 final room = bc.maxHeight - 8;
-                final dd = room < 230 ? (room < 120 ? 120.0 : room) : 230.0;
+                final dd = room < 270 ? (room < 120 ? 120.0 : room) : 270.0;
                 return Center(
-                  child: GestureDetector(
+                  child: BeadCounter(
+                    size: dd,
+                    count: cur,
+                    progress: prog,
+                    sub: 'من $pg',
                     onTap: () {
                       HapticFeedback.lightImpact();
                       add(1);
                     },
-                    child: SizedBox(
-                      width: dd,
-                      height: dd,
-                      child: Stack(alignment: Alignment.center, children: [
-                        SquareProgress(size: dd, value: prog, color: a),
-                        Container(
-                          width: dd * .83,
-                          height: dd * .83,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(dd * .15),
-                            color: pri(context),
-                            boxShadow: [BoxShadow(color: a.withOpacity(.4), blurRadius: 20, spreadRadius: 2)],
-                          ),
-                          child: Column(mainAxisSize: MainAxisSize.min, children: [
-                            Text('$cur', style: TextStyle(fontSize: dd * .22, fontWeight: FontWeight.bold, color: Colors.white)),
-                            Text('من $pg', style: TextStyle(fontSize: dd * .07, color: Colors.white70)),
-                          ]),
-                        ),
-                      ]),
-                    ),
                   ),
                 );
               }),
             ),
-            Text('اضغط على المربع للعدّ، أو أضف عدداً دفعة واحدة', style: TextStyle(fontSize: 13, color: hint)),
+            Text('اضغط على الدائرة للعدّ، أو أضف عدداً دفعة واحدة', style: TextStyle(fontSize: 13, color: hint)),
           ]),
         ),
       ),
@@ -2536,16 +2771,9 @@ class SebhaScreen extends StatefulWidget {
   State<SebhaScreen> createState() => _SebhaScreenState();
 }
 
-class _SebhaScreenState extends State<SebhaScreen> with SingleTickerProviderStateMixin {
+class _SebhaScreenState extends State<SebhaScreen> {
   late int sel, target, done, goals;
   late List<int> counts;
-  late final AnimationController _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
-
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
-  }
 
   @override
   void initState() {
@@ -2571,7 +2799,6 @@ class _SebhaScreenState extends State<SebhaScreen> with SingleTickerProviderStat
 
   void tap() {
     HapticFeedback.lightImpact();
-    _pulse.forward(from: 0);
     var finished = false;
     logSebha(sel);
     setState(() {
@@ -2968,113 +3195,7 @@ class _SebhaScreenState extends State<SebhaScreen> with SingleTickerProviderStat
     );
   }
 
-  // العدّاد: دائرة كبيرة — حلقة خرز لؤلؤي تضيء بالذهب مع التقدّم، ولوح داخلي بنقش نجوم ولمعة، ونبضة عند كل ضغطة
-  Widget _counter(double d, double prog, Color pc, Color tc, Color gold) {
-    final inner = d * .74;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: tap,
-      child: AnimatedBuilder(
-        animation: _pulse,
-        builder: (context, _) {
-          final t = Curves.easeOut.transform(_pulse.value);
-          final press = dmath.sin(dmath.pi * _pulse.value);
-          return SizedBox(
-            width: d,
-            height: d,
-            child: Stack(alignment: Alignment.center, children: [
-              // هالة ناعمة خلف الدائرة
-              Container(
-                width: d * .94,
-                height: d * .94,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: gold.withOpacity(.16 + .26 * press), blurRadius: 30 + 14 * press, spreadRadius: 2)],
-                ),
-              ),
-              // حلقة الخرز (التقدّم)
-              CustomPaint(size: Size(d, d), painter: _BeadRingPainter(prog, gold)),
-              // موجة تتسع وتخفت عند الضغط
-              if (_pulse.isAnimating)
-                Transform.scale(
-                  scale: 1 + .18 * t,
-                  child: Container(
-                    width: inner,
-                    height: inner,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: gold.withOpacity((1 - t) * .75), width: 3),
-                    ),
-                  ),
-                ),
-              // اللوح الداخلي
-              Transform.scale(
-                scale: 1 - .035 * press,
-                child: Container(
-                  width: inner,
-                  height: inner,
-                  padding: EdgeInsets.all(inner * .045),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      center: const Alignment(-.3, -.35),
-                      radius: 1.0,
-                      colors: [Color.lerp(pc, tc, .45)!, Color.lerp(pc, Colors.black, .55)!],
-                    ),
-                    border: Border.all(color: gold, width: 2.2),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(.35), blurRadius: 14, offset: const Offset(0, 6))],
-                  ),
-                  child: Container(
-                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: gold.withOpacity(.5), width: 1)),
-                    child: ClipOval(
-                      child: Stack(alignment: Alignment.center, children: [
-                        Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: _StarPatternPainter(gold)))),
-                        // لمعة زجاجية في الأعلى
-                        Positioned(
-                          top: inner * .06,
-                          child: Container(
-                            width: inner * .52,
-                            height: inner * .22,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.all(Radius.elliptical(inner * .26, inner * .11)),
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [Colors.white.withOpacity(.18), Colors.white.withOpacity(0)],
-                              ),
-                            ),
-                          ),
-                        ),
-                        Column(mainAxisSize: MainAxisSize.min, children: [
-                          SizedBox(
-                            width: inner * .68,
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text('$count',
-                                  style: TextStyle(
-                                    fontSize: inner * .36,
-                                    height: 1.1,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    shadows: [Shadow(color: gold.withOpacity(.55), blurRadius: 12)],
-                                  )),
-                            ),
-                          ),
-                          SizedBox(width: inner * .42, child: const OrnamentDivider()),
-                          const SizedBox(height: 4),
-                          Text('من $target', style: TextStyle(fontSize: inner * .085, fontWeight: FontWeight.bold, color: gold)),
-                        ]),
-                      ]),
-                    ),
-                  ),
-                ),
-              ),
-            ]),
-          );
-        },
-      ),
-    );
-  }
+  Widget _counter(double d, double prog) => BeadCounter(size: d, count: count, progress: prog, sub: 'من $target', onTap: tap);
 
   @override
   Widget build(BuildContext context) {
@@ -3091,13 +3212,13 @@ class _SebhaScreenState extends State<SebhaScreen> with SingleTickerProviderStat
       body: PageBackdrop(
         child: SafeArea(
           child: LayoutBuilder(builder: (ctx, bc) {
-            final d = dmath.min(bc.maxWidth * .74, bc.maxHeight * .42).clamp(160.0, 320.0).toDouble();
+            final d = dmath.min(bc.maxWidth * .82, bc.maxHeight * .46).clamp(170.0, 350.0).toDouble();
             return Padding(
               padding: const EdgeInsets.fromLTRB(14, 4, 14, 10),
               child: Column(children: [
                 Expanded(child: _formulaBox(context, pc, tc, gold)),
                 const SizedBox(height: 12),
-                _counter(d, prog, pc, tc, gold),
+                _counter(d, prog),
                 const SizedBox(height: 6),
                 Text('$pct٪ من الهدف  •  اضغط على الدائرة للعدّ',
                     style: TextStyle(fontSize: 12.5, color: hint)),
@@ -3174,11 +3295,150 @@ class _InputDialogState extends State<_InputDialog> {
 }
 
 
-// ---------- حلقة الخرز حول العدّاد الدائري ----------
+// ---------- عدّاد دائري موحّد: حلقة خرز بلون الثيم + لوح داخلي بنقش نجوم + نبضة عند الضغط ----------
+class BeadCounter extends StatefulWidget {
+  final double size, progress;
+  final int count;
+  final String? sub;
+  final VoidCallback onTap;
+  const BeadCounter({super.key, required this.size, required this.count, required this.progress, required this.onTap, this.sub});
+  @override
+  State<BeadCounter> createState() => _BeadCounterState();
+}
+
+class _BeadCounterState extends State<BeadCounter> with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = widget.size;
+    final inner = d * .78;
+    final pc = pri(context), tc = tri(context);
+    final gold = Color.lerp(sec(context), Colors.white, .2)!;
+    final bead = accent(context);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        _pulse.forward(from: 0);
+        widget.onTap();
+      },
+      child: AnimatedBuilder(
+        animation: _pulse,
+        builder: (context, _) {
+          final v = _pulse.value;
+          final t = Curves.easeOut.transform(v);
+          final press = dmath.sin(dmath.pi * v);
+          return SizedBox(
+            width: d,
+            height: d,
+            child: Stack(alignment: Alignment.center, children: [
+              // هالة ناعمة بلون الثيم خلف الدائرة
+              Container(
+                width: d * .94,
+                height: d * .94,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: bead.withOpacity(.16 + .26 * press), blurRadius: 30 + 14 * press, spreadRadius: 2)],
+                ),
+              ),
+              // حلقة الخرز (التقدّم)
+              CustomPaint(size: Size(d, d), painter: _BeadRingPainter(widget.progress, bead)),
+              // موجة تتسع وتخفت عند الضغط
+              if (v > 0 && v < 1)
+                Transform.scale(
+                  scale: 1 + .16 * t,
+                  child: Container(
+                    width: inner,
+                    height: inner,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: gold.withOpacity((1 - t) * .75), width: 3),
+                    ),
+                  ),
+                ),
+              // اللوح الداخلي
+              Transform.scale(
+                scale: 1 - .035 * press,
+                child: Container(
+                  width: inner,
+                  height: inner,
+                  padding: EdgeInsets.all(inner * .045),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      center: const Alignment(-.3, -.35),
+                      radius: 1.0,
+                      colors: [Color.lerp(pc, tc, .45)!, Color.lerp(pc, Colors.black, .55)!],
+                    ),
+                    border: Border.all(color: gold, width: 2.2),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(.35), blurRadius: 14, offset: const Offset(0, 6))],
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: gold.withOpacity(.5), width: 1)),
+                    child: ClipOval(
+                      child: Stack(alignment: Alignment.center, children: [
+                        Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: _StarPatternPainter(gold)))),
+                        // لمعة زجاجية في الأعلى
+                        Positioned(
+                          top: inner * .06,
+                          child: Container(
+                            width: inner * .52,
+                            height: inner * .22,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.all(Radius.elliptical(inner * .26, inner * .11)),
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Colors.white.withOpacity(.18), Colors.white.withOpacity(0)],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Column(mainAxisSize: MainAxisSize.min, children: [
+                          SizedBox(
+                            width: inner * .68,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('${widget.count}',
+                                  style: TextStyle(
+                                    fontSize: inner * .36,
+                                    height: 1.1,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    shadows: [Shadow(color: gold.withOpacity(.55), blurRadius: 12)],
+                                  )),
+                            ),
+                          ),
+                          SizedBox(width: inner * .42, child: const OrnamentDivider()),
+                          if (widget.sub != null) ...[
+                            const SizedBox(height: 4),
+                            Text(widget.sub!, style: TextStyle(fontSize: inner * .085, fontWeight: FontWeight.bold, color: gold)),
+                          ],
+                        ]),
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
+            ]),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// حلقة الخرز: خرزات بلون الثيم، المضاءة منها بقدر التقدّم
 class _BeadRingPainter extends CustomPainter {
   final double value;
-  final Color gold;
-  _BeadRingPainter(this.value, this.gold);
+  final Color color;
+  _BeadRingPainter(this.value, this.color);
   static const n = 40;
 
   @override
@@ -3191,11 +3451,13 @@ class _BeadRingPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.2
-        ..color = gold.withOpacity(.35),
+        ..color = color.withOpacity(.35),
     );
     final v = value.clamp(0.0, 1.0) * n;
     final lit = v.floor();
     final frac = v - lit;
+    final hi = Color.lerp(color, Colors.white, .75)!;
+    final lo = Color.lerp(color, Colors.black, .35)!;
     for (var i = 0; i < n; i++) {
       final ang = -dmath.pi / 2 + 2 * dmath.pi * i / n;
       final p = c + Offset(dmath.cos(ang), dmath.sin(ang)) * r;
@@ -3205,11 +3467,12 @@ class _BeadRingPainter extends CustomPainter {
       final part = i == lit && frac > 0;
       if (on || part) {
         final k = on ? 1.0 : frac;
+        final o = .4 + .6 * k;
         canvas.drawCircle(
           p,
           br * 1.7,
           Paint()
-            ..color = gold.withOpacity(.5 * k)
+            ..color = color.withOpacity(.5 * k)
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
         );
         canvas.drawCircle(
@@ -3218,27 +3481,26 @@ class _BeadRingPainter extends CustomPainter {
           Paint()
             ..shader = RadialGradient(
               center: const Alignment(-.4, -.4),
-              colors: [Colors.white, gold, Color.lerp(gold, Colors.black, .35)!],
+              colors: [hi.withOpacity(o), color.withOpacity(o), lo.withOpacity(o)],
               stops: const [0, .5, 1],
-            ).createShader(Rect.fromCircle(center: p, radius: br))
-            ..color = Colors.white.withOpacity(.4 + .6 * k),
+            ).createShader(Rect.fromCircle(center: p, radius: br)),
         );
       } else {
-        canvas.drawCircle(p, br, Paint()..color = gold.withOpacity(.2));
+        canvas.drawCircle(p, br, Paint()..color = color.withOpacity(.2));
         canvas.drawCircle(
           p,
           br,
           Paint()
             ..style = PaintingStyle.stroke
             ..strokeWidth = 1
-            ..color = gold.withOpacity(.45),
+            ..color = color.withOpacity(.5),
         );
       }
     }
   }
 
   @override
-  bool shouldRepaint(_BeadRingPainter o) => o.value != value || o.gold != gold;
+  bool shouldRepaint(_BeadRingPainter o) => o.value != value || o.color != color;
 }
 
 // ---------- مؤشر تقدم مربع (بديل الدائرة) ----------
@@ -5727,7 +5989,7 @@ class _AnwarScreenState extends State<AnwarScreen> {
   @override
   Widget build(BuildContext context) {
     final a = accent(context);
-    final fill = Theme.of(context).appBarTheme.backgroundColor ?? a;
+    final cs = (MediaQuery.of(context).size.width * .38).clamp(124.0, 150.0).toDouble();
     final btn = FilledButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 14));
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -5763,23 +6025,7 @@ class _AnwarScreenState extends State<AnwarScreen> {
                             ),
                           ),
                           const SizedBox(width: 12),
-                          SizedBox(
-                            width: 124,
-                            height: 124,
-                            child: Material(
-                              color: fill,
-                              elevation: 3,
-                              borderRadius: BorderRadius.circular(22),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(22),
-                                onTap: tap,
-                                child: Center(
-                                  child: Text('$count',
-                                      style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white)),
-                                ),
-                              ),
-                            ),
-                          ),
+                          BeadCounter(size: cs, count: count, progress: (idx + 1) / items.length, onTap: tap),
                           const SizedBox(width: 12),
                           Expanded(
                             child: FilledButton.tonalIcon(
