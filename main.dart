@@ -233,6 +233,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky); // fullscreen_all
   await Repo.init();
+  loadCustomSebha();
   initReminders();
   runApp(const App());
 }
@@ -1724,7 +1725,7 @@ class _PrayerTabState extends State<PrayerTab> {
       ),
       Padding(
         padding: const EdgeInsets.fromLTRB(4, 2, 4, 2),
-        child: Text('علّم على مستواك بالعلامة ✓ على الجنب، ومش هيتغيّر إلا لما تختار مستوى تاني بنفسك. فتح أي مستوى للفرجة مش بيغيّر مستواك.',
+        child: Text('علّم على مستواك بالعلامة ✓ على الجانب، ولن يتغيّر إلا إذا اخترت مستوى آخر بنفسك. وفتح أي مستوى للاطلاع لا يغيّر مستواك.',
             style: TextStyle(fontSize: 12.5, height: 1.6, color: Theme.of(context).hintColor)),
       ),
       for (var l = 1; l <= 5; l++) _levelCard(context, l),
@@ -1869,9 +1870,9 @@ class _LevelScreenState extends State<LevelScreen> {
       showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('ما شاء الله، أتممتم الشهر كاملاً',
+          title: const Text('ما شاء الله، أتممتَ الشهر كاملاً',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, height: 1.7)),
-          content: Text('أتممتم ورد المستوى ${levelNames[widget.level - 1]} لمدة $days يوماً\nهنيئا لكم يا أحباب رسول الله ﷺ',
+          content: Text('أتممتَ ورد المستوى ${levelNames[widget.level - 1]} لمدة $days يوماً\nهنيئاً لك يا حبيب رسول الله ﷺ',
               textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, height: 1.8)),
           actionsAlignment: MainAxisAlignment.center,
           actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('تم', style: TextStyle(fontSize: 17)))],
@@ -2089,9 +2090,9 @@ class _WirdDayScreenState extends State<WirdDayScreen> {
       showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('هنيئا لكم يا أحباب رسول الله ﷺ',
+          title: const Text('هنيئاً لك يا حبيب رسول الله ﷺ',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, height: 1.7)),
-          content: Text('أتممتم ورد اليوم: $goal صلاة\nأيام متتالية: $s',
+          content: Text('أتممتَ ورد اليوم: $goal صلاة\nأيام متتالية: $s',
               textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, height: 1.8)),
           actionsAlignment: MainAxisAlignment.center,
           actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('تم', style: TextStyle(fontSize: 17)))],
@@ -2454,7 +2455,7 @@ class ColorsScreen extends StatelessWidget {
 }
 
 // ---------- سبحة الصلاة على الحبيب ﷺ ----------
-const sebhaFormulas = [
+const _sebhaBase = [
   'اللهم صل وسلم وبارك على سيدنا محمد وعلى آله عدد كمال الله وكما يليق بكماله',
   'اللهم صل على سيدنا محمد النبي الأمي الحبيب العالي القدر العظيم الجاه وعلى آله وصحبه وسلم',
   'اللهم صل وسلم وبارك على سيدنا محمد كريم الآباء والأمهات وعلى آله',
@@ -2493,6 +2494,18 @@ const sebhaFormulas = [
 ];
 const sebhaTargets = [33, 100, 300, 500, 1000];
 
+// الصيغ الجاهزة + ما يضيفه المستخدم من أذكار خاصة (الصيغة المحذوفة تبقى فارغة للحفاظ على ترتيب الإحصائيات)
+final List<String> sebhaFormulas = List<String>.of(_sebhaBase);
+
+void loadCustomSebha() {
+  sebhaFormulas
+    ..clear()
+    ..addAll(_sebhaBase)
+    ..addAll(Repo.prefs.getStringList('sebha_custom') ?? const <String>[]);
+}
+
+void saveCustomSebha() => Repo.prefs.setStringList('sebha_custom', sebhaFormulas.sublist(_sebhaBase.length));
+
 
 // ---------- سجل السبحة اليومي (بالتاريخ والصيغة) ----------
 String sebhaDayKey(DateTime t) => 'sd_${t.year}_${t.month}_${t.day}';
@@ -2526,31 +2539,18 @@ class SebhaScreen extends StatefulWidget {
 class _SebhaScreenState extends State<SebhaScreen> {
   late int sel, target, done, goals;
   late List<int> counts;
-  final chipsCtrl = ScrollController();
 
   @override
   void initState() {
     super.initState();
     final p = Repo.prefs;
     sel = p.getInt('sebha_sel') ?? 0;
-    if (sel < 0 || sel >= sebhaFormulas.length) sel = 0;
+    if (sel < 0 || sel >= sebhaFormulas.length || sebhaFormulas[sel].isEmpty) sel = 0;
     target = p.getInt('sebha_target') ?? 100;
+    if (target < 1) target = 100;
     done = p.getInt('sebha_done') ?? 0;
     goals = p.getInt('sebha_goals') ?? 0;
     counts = List.generate(sebhaFormulas.length, (i) => p.getInt('sebha_c$i') ?? 0);
-    // نوصّل صف الأرقام للعدد المختار عشان يبان من أول ما الشاشة تفتح
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !chipsCtrl.hasClients) return;
-      final i = sebhaTargets.indexOf(target);
-      if (i < 0) return;
-      chipsCtrl.jumpTo((i * 84.0 - 60).clamp(0.0, chipsCtrl.position.maxScrollExtent).toDouble());
-    });
-  }
-
-  @override
-  void dispose() {
-    chipsCtrl.dispose();
-    super.dispose();
   }
 
   int get count => counts[sel];
@@ -2569,7 +2569,7 @@ class _SebhaScreenState extends State<SebhaScreen> {
     setState(() {
       counts[sel]++;
       if (counts[sel] >= target) {
-        // الهدف خلص: نحفظ عدده في مجموع الأهداف ونبدأ هدف جديد من الصفر
+        // اكتمل الهدف: نحفظ عدده في مجموع الأهداف ونبدأ هدفاً جديداً من الصفر
         done += counts[sel];
         goals += 1;
         counts[sel] = 0;
@@ -2582,7 +2582,7 @@ class _SebhaScreenState extends State<SebhaScreen> {
       showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('هنيئا لكم يا أحباب رسول الله ﷺ',
+          title: const Text('هنيئاً لك يا حبيب رسول الله ﷺ',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, height: 1.7)),
           actionsAlignment: MainAxisAlignment.center,
           actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('تم', style: TextStyle(fontSize: 17)))],
@@ -2592,11 +2592,11 @@ class _SebhaScreenState extends State<SebhaScreen> {
     }
   }
 
-  void confirmReset() => showDialog<void>(
+  Future<void> confirmReset() => showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('البداية من جديد؟'),
-          content: const Text('سيعود عداد هذه الصيغة إلى الصفر.'),
+          content: const Text('سيعود عدّاد هذه الصيغة إلى الصفر.'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
             TextButton(
@@ -2611,7 +2611,7 @@ class _SebhaScreenState extends State<SebhaScreen> {
         ),
       );
 
-  void confirmClearGoals() => showDialog<void>(
+  Future<void> confirmClearGoals() => showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('حذف الأهداف السابقة؟'),
@@ -2633,28 +2633,128 @@ class _SebhaScreenState extends State<SebhaScreen> {
         ),
       );
 
-  void pick() => showModalBottomSheet<void>(
+  // ---------- العدد المستهدف ----------
+  void setTarget(int t) {
+    setState(() => target = t);
+    Repo.prefs.setInt('sebha_target', t);
+  }
+
+  Future<void> customTarget() async {
+    final v = await showDialog<String>(
+      context: context,
+      builder: (_) => const _InputDialog(
+        title: 'اكتب العدد الذي تريده',
+        hint: 'مثال: 700',
+        okLabel: 'تعيين',
+        number: true,
+      ),
+    );
+    final n = v == null ? null : int.tryParse(v);
+    if (n != null && mounted) setTarget(n);
+  }
+
+  // ---------- ذكر من عندك ----------
+  Future<void> addCustom() async {
+    final t = await showDialog<String>(
+      context: context,
+      builder: (_) => const _InputDialog(
+        title: 'اكتب الذكر الذي تريده',
+        hint: 'اكتب الصيغة أو الذكر هنا',
+        okLabel: 'إضافة',
+      ),
+    );
+    if (t == null || !mounted) return;
+    sebhaFormulas.add(t);
+    counts.add(0);
+    saveCustomSebha();
+    setState(() => sel = sebhaFormulas.length - 1);
+    Repo.prefs.setInt('sebha_sel', sel);
+  }
+
+  Future<void> removeCustom(int i) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('حذف هذا الذكر؟'),
+        content: const Text('سيُحذف الذكر من قائمة الصيغ، ويبقى ما عددته منه محسوباً في الإحصائيات.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('حذف')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    sebhaFormulas[i] = '';
+    saveCustomSebha();
+    setState(() {
+      if (sel == i) {
+        sel = 0;
+        Repo.prefs.setInt('sebha_sel', 0);
+      }
+    });
+  }
+
+  Future<void> pick() => showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
-        builder: (ctx) => SafeArea(
-          child: ListView.separated(
-            shrinkWrap: true,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: sebhaFormulas.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
-            itemBuilder: (_, i) => ListTile(
-              leading: CircleAvatar(radius: 15, child: Text('${i + 1}', style: const TextStyle(fontSize: 14))),
-              title: Text(sebhaFormulas[i],
-                  style: TextStyle(fontSize: 17, height: 1.7, fontWeight: FontWeight.bold)),
-              trailing: i == sel ? Icon(Icons.check_circle, color: accent(ctx)) : Text('${counts[i]}'),
-              onTap: () {
-                setState(() => sel = i);
-                Repo.prefs.setInt('sebha_sel', i);
-                Navigator.pop(ctx);
-              },
+        builder: (ctx) => StatefulBuilder(builder: (ctx, setS) {
+          final idxs = [for (var i = 0; i < sebhaFormulas.length; i++) if (sebhaFormulas[i].isNotEmpty) i];
+          return SafeArea(
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Row(children: [
+                    const Expanded(child: Text('اختر الصيغة', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                    FilledButton.tonalIcon(
+                      onPressed: () async {
+                        await addCustom();
+                        if (ctx.mounted) Navigator.pop(ctx);
+                      },
+                      icon: const Icon(Icons.add),
+                      label: const Text('ذكر من عندك'),
+                    ),
+                  ]),
+                ),
+                const Divider(height: 1),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: idxs.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (_, k) {
+                      final i = idxs[k];
+                      final custom = i >= _sebhaBase.length;
+                      return ListTile(
+                        leading: CircleAvatar(radius: 15, child: Text('${k + 1}', style: const TextStyle(fontSize: 14))),
+                        title: Text(sebhaFormulas[i], style: const TextStyle(fontSize: 17, height: 1.7, fontWeight: FontWeight.bold)),
+                        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                          i == sel ? Icon(Icons.check_circle, color: accent(ctx)) : Text('${counts[i]}'),
+                          if (custom)
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              tooltip: 'حذف الذكر',
+                              onPressed: () async {
+                                await removeCustom(i);
+                                setS(() {});
+                              },
+                            ),
+                        ]),
+                        onTap: () {
+                          setState(() => sel = i);
+                          Repo.prefs.setInt('sebha_sel', i);
+                          Navigator.pop(ctx);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ]),
             ),
-          ),
-        ),
+          );
+        }),
       );
 
   Widget stat(String label, String value, Color a) => Column(mainAxisSize: MainAxisSize.min, children: [
@@ -2663,129 +2763,179 @@ class _SebhaScreenState extends State<SebhaScreen> {
         Text(label, style: TextStyle(fontSize: 13, color: Theme.of(context).hintColor)),
       ]);
 
+  // ---------- كل الإعدادات في زر واحد ----------
+  void openSettings() => showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (ctx) => StatefulBuilder(builder: (ctx, setS) {
+          final a = accent(ctx);
+          final hint = Theme.of(ctx).hintColor;
+          return SafeArea(
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+                    stat('الأهداف المكتملة', '$goals', a),
+                    stat('مجموع الأهداف', '$done', a),
+                    stat('عدّ هذه الصيغة', '$count', a),
+                  ]),
+                  const Divider(height: 24),
+                  Text('الصيغة', style: TextStyle(color: hint)),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          await pick();
+                          setS(() {});
+                        },
+                        icon: const Icon(Icons.list),
+                        label: const Text('اختيار صيغة'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          await addCustom();
+                          setS(() {});
+                        },
+                        icon: const Icon(Icons.edit_note),
+                        label: const Text('ذكر من عندك'),
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 16),
+                  Text('العدد المستهدف', style: TextStyle(color: hint)),
+                  const SizedBox(height: 6),
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    for (final t in sebhaTargets)
+                      ChoiceChip(
+                        label: Text('$t', style: const TextStyle(fontSize: 16)),
+                        selected: target == t,
+                        onSelected: (_) {
+                          setTarget(t);
+                          setS(() {});
+                        },
+                      ),
+                    if (!sebhaTargets.contains(target))
+                      ChoiceChip(label: Text('$target', style: const TextStyle(fontSize: 16)), selected: true, onSelected: (_) {}),
+                    ActionChip(
+                      avatar: const Icon(Icons.edit, size: 18),
+                      label: const Text('عدد آخر', style: TextStyle(fontSize: 16)),
+                      onPressed: () async {
+                        await customTarget();
+                        setS(() {});
+                      },
+                    ),
+                  ]),
+                  const SizedBox(height: 16),
+                  Row(children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          await confirmReset();
+                          setS(() {});
+                        },
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('البداية من جديد'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () {
+                          save();
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context)
+                            ..hideCurrentSnackBar()
+                            ..showSnackBar(const SnackBar(
+                                content: Text('تم حفظ العدد', textAlign: TextAlign.center), duration: Duration(seconds: 1)));
+                        },
+                        icon: const Icon(Icons.save),
+                        label: const Text('حفظ العدد'),
+                      ),
+                    ),
+                  ]),
+                  const SizedBox(height: 4),
+                  TextButton.icon(
+                    onPressed: () async {
+                      await confirmClearGoals();
+                      setS(() {});
+                    },
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('حذف الأهداف السابقة'),
+                  ),
+                ]),
+              ),
+            ),
+          );
+        }),
+      );
+
   @override
   Widget build(BuildContext context) {
     final a = accent(context);
     final fill = Theme.of(context).appBarTheme.backgroundColor ?? a;
     final prog = count >= target ? 1.0 : count / target;
     return Scaffold(
-      appBar: AppBar(title: const Text('سبحة الصلاة على الحبيب ﷺ', style: TextStyle(fontSize: 18))),
+      appBar: AppBar(
+        title: const Text('سبحة الصلاة على الحبيب ﷺ', style: TextStyle(fontSize: 18)),
+        actions: [IconButton(icon: const Icon(Icons.tune), tooltip: 'الإعدادات', onPressed: openSettings)],
+      ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
           child: Column(children: [
-            // المحتوى فوق مش بيتسحب، والعدّاد تحت ثابت دايماً
+            // الصيغة: بطاقة كبيرة، والخط يكبر ما أمكن حتى تظهر الصيغة كاملة بلا سحب
             Expanded(
-              child: Column(children: [
-            Flexible(
+              flex: 5,
               child: Card(
+                margin: EdgeInsets.zero,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 2),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    // الصيغة كلها باينة من غير سحب: لو طويلة الخط بيصغّر تلقائي على قد المساحة المتاحة
-                    Flexible(
-                      child: LayoutBuilder(builder: (ctx, bc) {
-                        final scaler = MediaQuery.textScalerOf(ctx);
-                        final text = sebhaFormulas[sel];
-                        final dts = DefaultTextStyle.of(ctx).style;
-                        double heightAt(double f) {
-                          final tp = TextPainter(
-                            text: TextSpan(text: text, style: dts.merge(TextStyle(fontSize: f, height: 1.7, fontWeight: FontWeight.bold))),
-                            textDirection: TextDirection.rtl,
-                            textAlign: TextAlign.center,
-                            textScaler: scaler,
-                          )..layout(maxWidth: bc.maxWidth);
-                          return tp.height;
-                        }
+                  padding: const EdgeInsets.all(16),
+                  child: LayoutBuilder(builder: (ctx, bc) {
+                    final scaler = MediaQuery.textScalerOf(ctx);
+                    final text = sebhaFormulas[sel];
+                    final dts = DefaultTextStyle.of(ctx).style;
+                    double heightAt(double f) {
+                      final tp = TextPainter(
+                        text: TextSpan(text: text, style: dts.merge(TextStyle(fontSize: f, height: 1.7, fontWeight: FontWeight.bold))),
+                        textDirection: TextDirection.rtl,
+                        textAlign: TextAlign.center,
+                        textScaler: scaler,
+                      )..layout(maxWidth: bc.maxWidth);
+                      return tp.height;
+                    }
 
-                        var fs = 18.0;
-                        while (fs > 10 && heightAt(fs) > bc.maxHeight) {
-                          fs -= 0.5;
-                        }
-                        return FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: SizedBox(
-                            width: bc.maxWidth,
-                            child: Text(text,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: fs, height: 1.7, fontWeight: FontWeight.bold, color: a)),
-                          ),
-                        );
-                      }),
-                    ),
-                    TextButton.icon(onPressed: pick, icon: const Icon(Icons.list), label: const Text('اختيار صيغة أخرى')),
-                  ]),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-              stat('الأهداف المكتملة', '$goals', a),
-              stat('مجموع الأهداف', '$done', a),
-            ]),
-            const SizedBox(height: 10),
-            Text('العدد المستهدف', style: TextStyle(color: Theme.of(context).hintColor)),
-            const SizedBox(height: 4),
-            // الأرقام كلها في صف واحد، وبتسحبيه بإيدك يمين وشمال عشان تختاري العدد
-            SizedBox(
-              height: 48,
-              child: ListView(
-                controller: chipsCtrl,
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                children: [
-                  for (final t in sebhaTargets)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Center(
-                        child: ChoiceChip(
-                          label: Text('$t', style: const TextStyle(fontSize: 16)),
-                          selected: target == t,
-                          onSelected: (_) {
-                            setState(() => target = t);
-                            Repo.prefs.setInt('sebha_target', t);
-                          },
-                        ),
+                    var fs = 34.0;
+                    while (fs > 14 && heightAt(fs) > bc.maxHeight) {
+                      fs -= 1;
+                    }
+                    return Center(
+                      child: SingleChildScrollView(
+                        child: Text(text,
+                            textAlign: TextAlign.center,
+                            textDirection: TextDirection.rtl,
+                            style: TextStyle(fontSize: fs, height: 1.7, fontWeight: FontWeight.bold, color: a)),
                       ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(children: [
-              Expanded(child: OutlinedButton.icon(onPressed: confirmReset, icon: const Icon(Icons.refresh), label: const Text('البداية من جديد'))),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () {
-                    save();
-                    ScaffoldMessenger.of(context)
-                      ..hideCurrentSnackBar()
-                      ..showSnackBar(const SnackBar(
-                          content: Text('تم حفظ العدد', textAlign: TextAlign.center), duration: Duration(seconds: 1)));
-                  },
-                  icon: const Icon(Icons.save),
-                  label: const Text('حفظ العدد'),
+                    );
+                  }),
                 ),
               ),
-            ]),
-            const SizedBox(height: 4),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton.icon(
-                onPressed: confirmClearGoals,
-                icon: const Icon(Icons.delete_outline),
-                label: const Text('حذف الأهداف السابقة'),
-              ),
             ),
-              ]),
-            ),
-            LayoutBuilder(builder: (ctx, _) {
-              final d = (MediaQuery.of(ctx).size.height * 0.21).clamp(135.0, 200.0).toDouble();
-              return Padding(
-                padding: const EdgeInsets.only(top: 8, bottom: 4),
-                child: Center(
+            const SizedBox(height: 12),
+            // العدّاد: مربع كبير يملأ المساحة المتبقية
+            Expanded(
+              flex: 6,
+              child: LayoutBuilder(builder: (ctx, bc) {
+                final d = dmath.min(bc.maxWidth, bc.maxHeight);
+                return Center(
                   child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
                     onTap: tap,
                     child: SizedBox(
                       width: d,
@@ -2793,27 +2943,93 @@ class _SebhaScreenState extends State<SebhaScreen> {
                       child: Stack(alignment: Alignment.center, children: [
                         SquareProgress(size: d, value: prog, color: a),
                         Container(
-                          width: d * .83,
-                          height: d * .83,
+                          width: d * .86,
+                          height: d * .86,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(d * .15),
                             color: fill,
                             boxShadow: [BoxShadow(color: a.withOpacity(.4), blurRadius: 20, spreadRadius: 2)],
                           ),
-                          child: Text('$count', style: TextStyle(fontSize: d * .24, fontWeight: FontWeight.bold, color: Colors.white)),
+                          child: Column(mainAxisSize: MainAxisSize.min, children: [
+                            Text('$count', style: TextStyle(fontSize: d * .34, height: 1.1, fontWeight: FontWeight.bold, color: Colors.white)),
+                            Text('من $target', style: TextStyle(fontSize: d * .07, color: Colors.white70)),
+                          ]),
                         ),
                       ]),
                     ),
                   ),
-                ),
-              );
-            }),
+                );
+              }),
+            ),
           ]),
         ),
       ),
     );
   }
+}
+
+// نافذة إدخال رقم أو نص (للعدد المستهدف أو الذكر الخاص)
+class _InputDialog extends StatefulWidget {
+  final String title, hint, okLabel;
+  final bool number;
+  const _InputDialog({required this.title, required this.hint, required this.okLabel, this.number = false});
+  @override
+  State<_InputDialog> createState() => _InputDialogState();
+}
+
+class _InputDialogState extends State<_InputDialog> {
+  final c = TextEditingController();
+  String? err;
+
+  @override
+  void dispose() {
+    c.dispose();
+    super.dispose();
+  }
+
+  void submit() {
+    var v = c.text.trim();
+    if (widget.number) {
+      const ar = '٠١٢٣٤٥٦٧٨٩';
+      for (var i = 0; i < 10; i++) {
+        v = v.replaceAll(ar[i], '$i');
+      }
+      final n = int.tryParse(v);
+      if (n == null || n < 1 || n > 1000000) {
+        setState(() => err = 'أدخل عدداً صحيحاً بين 1 و 1000000');
+        return;
+      }
+    } else if (v.isEmpty) {
+      setState(() => err = 'اكتب الذكر أولاً');
+      return;
+    }
+    Navigator.pop(context, v);
+  }
+
+  @override
+  Widget build(BuildContext context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          title: Text(widget.title),
+          content: TextField(
+            controller: c,
+            autofocus: true,
+            keyboardType: widget.number ? TextInputType.number : TextInputType.multiline,
+            inputFormatters: widget.number ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9٠-٩]'))] : null,
+            minLines: widget.number ? 1 : 3,
+            maxLines: widget.number ? 1 : 6,
+            textAlign: widget.number ? TextAlign.center : TextAlign.start,
+            style: TextStyle(fontSize: widget.number ? 22 : 18),
+            decoration: InputDecoration(hintText: widget.hint, errorText: err, border: const OutlineInputBorder()),
+            onSubmitted: widget.number ? (_) => submit() : null,
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+            TextButton(onPressed: submit, child: Text(widget.okLabel)),
+          ],
+        ),
+      );
 }
 
 
@@ -3225,7 +3441,7 @@ class _StatsScreenState extends State<StatsScreen> {
             const SizedBox(height: 12),
             weekBars(s, a, pri(context)),
             const SizedBox(height: 4),
-            Center(child: Text('العمود الغامق يعني اليوم اتم', style: TextStyle(fontSize: 12, color: hint))),
+            Center(child: Text('العمود الغامق يعني أن اليوم قد اكتمل', style: TextStyle(fontSize: 12, color: hint))),
           ],
           section('الملخص', a),
           kv('منهج الصلاة', fmtNum(s.wird), a),
@@ -3252,15 +3468,15 @@ class _StatsScreenState extends State<StatsScreen> {
           if (s.formulas.any((v) => v > 0)) ...[
             section('السبحة حسب الصيغة', a),
             for (var k = 0; k < s.formulas.length; k++)
-              if (s.formulas[k] > 0) kv(sebhaFormulas[k], fmtNum(s.formulas[k]), a),
+              if (s.formulas[k] > 0) kv(sebhaFormulas[k].isEmpty ? 'ذكر محذوف' : sebhaFormulas[k], fmtNum(s.formulas[k]), a),
           ],
           if (s.total == 0)
             Padding(
               padding: const EdgeInsets.only(top: 14),
-              child: Center(child: Text('ما فيش صلاة متسجّلة في الفترة دي', style: TextStyle(color: hint))),
+              child: Center(child: Text('لا توجد صلاة مسجّلة في هذه الفترة', style: TextStyle(color: hint))),
             ),
           const SizedBox(height: 10),
-          Text('ملحوظة: السبحة بتتسجّل بالتاريخ من هذا التحديث، فاللي قبله بيظهر في المجموع الكلي بس. والتقديرات كمان بتبدأ من هذا التحديث.',
+          Text('ملحوظة: تُسجَّل السبحة بالتاريخ ابتداءً من هذا التحديث، لذا يظهر ما قبله في المجموع الكلي فقط، وتبدأ التقديرات أيضاً من هذا التحديث.',
               style: TextStyle(fontSize: 11.5, height: 1.5, color: hint)),
         ]),
       ),
@@ -3397,7 +3613,7 @@ class _StatsScreenState extends State<StatsScreen> {
               const SizedBox(height: 12),
               Padding(padding: const EdgeInsets.symmetric(horizontal: 8), child: chart(vals, dset, a, pri(context))),
               const SizedBox(height: 6),
-              Text('كل عمود هو يوم، والعمود الغامق يعني اليوم اتم', style: TextStyle(fontSize: 12, color: hint)),
+              Text('كل عمود هو يوم، والعمود الغامق يعني أن اليوم قد اكتمل', style: TextStyle(fontSize: 12, color: hint)),
             ]),
           ),
         ),
@@ -3406,7 +3622,7 @@ class _StatsScreenState extends State<StatsScreen> {
           child: Text('سجل الشهور', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: a)),
         ),
         if (keys.isEmpty)
-          Padding(padding: const EdgeInsets.all(20), child: Center(child: Text('لسه ما فيش ورد متسجّل. ابدأ من منهج الصلاة', style: TextStyle(color: hint))))
+          Padding(padding: const EdgeInsets.all(20), child: Center(child: Text('لا يوجد ورد مسجّل بعد. ابدأ من منهج الصلاة', style: TextStyle(color: hint))))
         else
           for (final k in keys)
             Card(
@@ -3889,7 +4105,7 @@ Future<void> scheduleWirdReminders({bool cancelFirst = true}) async {
       }
       for (var i = 0; i < 4; i++) {
         final target = DateTime(f.year, f.month, f.day + 7 * i, 10);
-        var msg = 'اليوم الجمعة، أكثروا من الصلاة على النبي ﷺ';
+        var msg = 'اليوم الجمعة، أكثِر من الصلاة على النبي ﷺ';
         if (i == 0) {
           var sum = 0;
           for (var k = 6; k >= 0; k--) {
@@ -3898,7 +4114,7 @@ Future<void> scheduleWirdReminders({bool cancelFirst = true}) async {
             sum += wirdDayTotal(d);
           }
           if (sum > 0) {
-            msg = 'مجموع ورد أسبوعك: ${fmtNum(sum)} صلاة على النبي ﷺ، تقبل الله. وأكثروا من الصلاة عليه يوم الجمعة';
+            msg = 'مجموع ورد أسبوعك: ${fmtNum(sum)} صلاة على النبي ﷺ، تقبل الله. وأكثِر من الصلاة عليه يوم الجمعة';
           }
         }
         await _notifPlugin.zonedSchedule(
@@ -4081,7 +4297,7 @@ class _NotifSettingsScreenState extends State<NotifSettingsScreen> {
           child: Column(children: [
             SwitchListTile(
               title: const Text('تذكير ورد اليوم', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-              subtitle: const Text('إشعار في الوقت اللي تحدده: «متبقي لك كذا من ورد اليوم»، ويختفي لو أتممت الورد'),
+              subtitle: const Text('إشعار في الوقت الذي تحدده: «متبقي لك كذا من ورد اليوم»، ويختفي لو أتممت الورد'),
               value: wirdOn,
               onChanged: (v) {
                 setState(() => wirdOn = v);
@@ -4156,7 +4372,7 @@ class _NotifSettingsScreenState extends State<NotifSettingsScreen> {
         Padding(
           padding: const EdgeInsets.all(8),
           child: Text(
-            'الإشعارات بتتجدّد كل ما تفتح التطبيق، وبتتجهز للأسبوع الجاي. لو الموبايل بيوقف التطبيق في الخلفية، اسمح له من إعدادات البطارية.',
+            'تتجدّد الإشعارات كلما فتحت التطبيق، وتُجهَّز للأسبوع القادم. وإن كان هاتفك يوقف التطبيق في الخلفية، فاسمح له من إعدادات البطارية.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 13, color: hint, height: 1.6),
           ),
@@ -4238,7 +4454,7 @@ class _BookmarksScreenState extends State<BookmarksScreen> {
           ? Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text('لسه ما فيش علامات.\nافتح أي كتاب واضغط على أيقونة العلامة فوق لتحفظ صفحة.',
+                child: Text('لا توجد علامات بعد.\nافتح أي كتاب واضغط على أيقونة العلامة في الأعلى لتحفظ صفحة.',
                     textAlign: TextAlign.center, style: TextStyle(color: hint, height: 1.8)),
               ),
             )
@@ -4301,7 +4517,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 24),
                   child: Text(
-                    'أهلاً بكم أحباب رسول الله ﷺ',
+                    'أهلاً بك يا حبيب رسول الله ﷺ',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontFamily: 'ArefRuqaa',
