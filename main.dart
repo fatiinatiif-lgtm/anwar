@@ -1517,10 +1517,8 @@ class SectionScreen extends StatelessWidget {
               final extra = sec.title == sectionSalat.title ? 1 : 0;
               return ListView.builder(
                 padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
-                itemCount: list.length + extra + 1,
-                itemBuilder: (_, k) {
-                  if (k == 0) return _SectionHeader(sec, list.length + extra);
-                  final j = k - 1;
+                itemCount: list.length + extra,
+                itemBuilder: (_, j) {
                   final Widget tile = j < extra ? const AnwarTile() : BookTile(list[j - extra]);
                   return j < 6 ? _Reveal(delay: j, child: tile) : tile;
                 },
@@ -1529,78 +1527,6 @@ class SectionScreen extends StatelessWidget {
           ),
         ),
       );
-}
-
-// ترويسة شاشة القسم
-class _SectionHeader extends StatelessWidget {
-  final BookSection bs;
-  final int count;
-  const _SectionHeader(this.bs, this.count);
-
-  @override
-  Widget build(BuildContext context) {
-    final pc = pri(context), tc = tri(context), sc = sec(context);
-    final edge = Color.lerp(sc, Colors.white, .25)!;
-    final i = bookSections.indexOf(bs);
-    final base = [pc, Color.lerp(pc, tc, .7)!, Color.lerp(Color.lerp(pc, sc, .35)!, Colors.black, .35)!][(i < 0 ? 0 : i) % 3];
-    final c1 = Color.lerp(Color.lerp(base, Colors.white, .06)!, tc, .12)!;
-    final c2 = Color.lerp(base, Colors.black, .5)!;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [c1, c2]),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: edge, width: 1.8),
-        boxShadow: [BoxShadow(color: base.withOpacity(.45), blurRadius: 18, offset: const Offset(0, 7))],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(27),
-        child: Stack(children: [
-          Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: _StarPatternPainter(edge)))),
-          Positioned.fill(child: IgnorePointer(child: CustomPaint(painter: _CornerPainter(edge.withOpacity(.7))))),
-          SizedBox(
-            width: double.infinity,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
-              child: Column(children: [
-                Container(
-                  width: 68,
-                  height: 68,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white.withOpacity(.14),
-                    border: Border.all(color: edge, width: 1.8),
-                    boxShadow: [BoxShadow(color: edge.withOpacity(.4), blurRadius: 14)],
-                  ),
-                  child: Icon(bs.icon, color: Colors.white, size: 34),
-                ),
-                const SizedBox(height: 12),
-                Text(bs.title,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 22, height: 1.5, fontWeight: FontWeight.bold, color: Colors.white)),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(.22),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: edge.withOpacity(.55)),
-                  ),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(Icons.menu_book, size: 15, color: edge),
-                    const SizedBox(width: 6),
-                    Text(booksCountText(count), style: TextStyle(fontSize: 13.5, color: Colors.white.withOpacity(.92))),
-                  ]),
-                ),
-                const SizedBox(height: 14),
-                const FractionallySizedBox(widthFactor: .6, child: OrnamentDivider()),
-              ]),
-            ),
-          ),
-        ]),
-      ),
-    );
-  }
 }
 
 Widget _shelfPill(BuildContext context, IconData ic, String t) {
@@ -3481,6 +3407,15 @@ class MoreTab extends StatelessWidget {
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutScreen())),
               ),
             ),
+            const SizedBox(height: 22),
+            const Padding(padding: EdgeInsets.symmetric(horizontal: 40), child: OrnamentDivider()),
+            const SizedBox(height: 12),
+            Center(
+              child: Text('تحت إشراف فضيلة الشيخ عبدالرحمن مصطفى الأزهري',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, height: 1.7, fontWeight: FontWeight.w600, color: accent(context))),
+            ),
+            const SizedBox(height: 16),
           ]),
         ),
       ]);
