@@ -2536,9 +2536,16 @@ class SebhaScreen extends StatefulWidget {
   State<SebhaScreen> createState() => _SebhaScreenState();
 }
 
-class _SebhaScreenState extends State<SebhaScreen> {
+class _SebhaScreenState extends State<SebhaScreen> with SingleTickerProviderStateMixin {
   late int sel, target, done, goals;
   late List<int> counts;
+  late final AnimationController _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 280));
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -2564,6 +2571,7 @@ class _SebhaScreenState extends State<SebhaScreen> {
 
   void tap() {
     HapticFeedback.lightImpact();
+    _pulse.forward(from: 0);
     var finished = false;
     logSebha(sel);
     setState(() {
@@ -2876,23 +2884,6 @@ class _SebhaScreenState extends State<SebhaScreen> {
         }),
       );
 
-  // شارة صغيرة زخرفية (الأهداف المكتملة / العدد المستهدف)
-  Widget _pill(BuildContext context, IconData ic, String t, Color gold, Color tint) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: tint.withOpacity(.16),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: gold.withOpacity(.8), width: 1.2),
-        ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(ic, size: 16, color: gold),
-          const SizedBox(width: 6),
-          Text(t,
-              style: TextStyle(
-                  fontSize: 13.5, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
-        ]),
-      );
-
   Widget _corner(Color gold, {double? top, double? bottom, double? left, double? right}) => Positioned(
         top: top,
         bottom: bottom,
@@ -2977,53 +2968,113 @@ class _SebhaScreenState extends State<SebhaScreen> {
     );
   }
 
-  // العدّاد: مربع مدوّر بتدرّج لوني وإطار ذهبي ومؤشر تقدّم ذهبي حوله
-  Widget _counter(double d, double prog, Color pc, Color tc, Color gold) => GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: tap,
-        child: SizedBox(
-          width: d,
-          height: d,
-          child: Stack(alignment: Alignment.center, children: [
-            Container(
-              width: d,
-              height: d,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(d * .2),
-                color: gold.withOpacity(.10),
-              ),
-            ),
-            SquareProgress(size: d, value: prog, color: gold),
-            Container(
-              width: d * .8,
-              height: d * .8,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(d * .15),
-                gradient: LinearGradient(
-                  begin: Alignment.topRight,
-                  end: Alignment.bottomLeft,
-                  colors: [Color.lerp(pc, tc, .35)!, Color.lerp(pc, Colors.black, .4)!],
+  // العدّاد: دائرة كبيرة — حلقة خرز لؤلؤي تضيء بالذهب مع التقدّم، ولوح داخلي بنقش نجوم ولمعة، ونبضة عند كل ضغطة
+  Widget _counter(double d, double prog, Color pc, Color tc, Color gold) {
+    final inner = d * .74;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: tap,
+      child: AnimatedBuilder(
+        animation: _pulse,
+        builder: (context, _) {
+          final t = Curves.easeOut.transform(_pulse.value);
+          final press = dmath.sin(dmath.pi * _pulse.value);
+          return SizedBox(
+            width: d,
+            height: d,
+            child: Stack(alignment: Alignment.center, children: [
+              // هالة ناعمة خلف الدائرة
+              Container(
+                width: d * .94,
+                height: d * .94,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [BoxShadow(color: gold.withOpacity(.16 + .26 * press), blurRadius: 30 + 14 * press, spreadRadius: 2)],
                 ),
-                border: Border.all(color: gold, width: 1.8),
-                boxShadow: [BoxShadow(color: pc.withOpacity(.5), blurRadius: 16, spreadRadius: 1, offset: const Offset(0, 4))],
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(d * .15 - 2),
-                child: Stack(alignment: Alignment.center, children: [
-                  RepaintBoundary(child: CustomPaint(size: Size(d * .8, d * .8), painter: _StarPatternPainter(gold))),
-                  Column(mainAxisSize: MainAxisSize.min, children: [
-                    Text('$count',
-                        style: TextStyle(fontSize: d * .3, height: 1.1, fontWeight: FontWeight.bold, color: Colors.white)),
-                    SizedBox(width: d * .34, child: const OrnamentDivider()),
-                    const SizedBox(height: 4),
-                    Text('من $target', style: TextStyle(fontSize: d * .075, color: gold)),
-                  ]),
-                ]),
+              // حلقة الخرز (التقدّم)
+              CustomPaint(size: Size(d, d), painter: _BeadRingPainter(prog, gold)),
+              // موجة تتسع وتخفت عند الضغط
+              if (_pulse.isAnimating)
+                Transform.scale(
+                  scale: 1 + .18 * t,
+                  child: Container(
+                    width: inner,
+                    height: inner,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: gold.withOpacity((1 - t) * .75), width: 3),
+                    ),
+                  ),
+                ),
+              // اللوح الداخلي
+              Transform.scale(
+                scale: 1 - .035 * press,
+                child: Container(
+                  width: inner,
+                  height: inner,
+                  padding: EdgeInsets.all(inner * .045),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      center: const Alignment(-.3, -.35),
+                      radius: 1.0,
+                      colors: [Color.lerp(pc, tc, .45)!, Color.lerp(pc, Colors.black, .55)!],
+                    ),
+                    border: Border.all(color: gold, width: 2.2),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(.35), blurRadius: 14, offset: const Offset(0, 6))],
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: gold.withOpacity(.5), width: 1)),
+                    child: ClipOval(
+                      child: Stack(alignment: Alignment.center, children: [
+                        Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: _StarPatternPainter(gold)))),
+                        // لمعة زجاجية في الأعلى
+                        Positioned(
+                          top: inner * .06,
+                          child: Container(
+                            width: inner * .52,
+                            height: inner * .22,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.all(Radius.elliptical(inner * .26, inner * .11)),
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Colors.white.withOpacity(.18), Colors.white.withOpacity(0)],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Column(mainAxisSize: MainAxisSize.min, children: [
+                          SizedBox(
+                            width: inner * .68,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('$count',
+                                  style: TextStyle(
+                                    fontSize: inner * .36,
+                                    height: 1.1,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    shadows: [Shadow(color: gold.withOpacity(.55), blurRadius: 12)],
+                                  )),
+                            ),
+                          ),
+                          SizedBox(width: inner * .42, child: const OrnamentDivider()),
+                          const SizedBox(height: 4),
+                          Text('من $target', style: TextStyle(fontSize: inner * .085, fontWeight: FontWeight.bold, color: gold)),
+                        ]),
+                      ]),
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ]),
-        ),
-      );
+            ]),
+          );
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3040,21 +3091,15 @@ class _SebhaScreenState extends State<SebhaScreen> {
       body: PageBackdrop(
         child: SafeArea(
           child: LayoutBuilder(builder: (ctx, bc) {
-            final d = dmath.min(bc.maxWidth * .56, bc.maxHeight * .34).clamp(120.0, 230.0).toDouble();
+            final d = dmath.min(bc.maxWidth * .74, bc.maxHeight * .42).clamp(160.0, 320.0).toDouble();
             return Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+              padding: const EdgeInsets.fromLTRB(14, 4, 14, 10),
               child: Column(children: [
-                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  _pill(context, Icons.emoji_events, 'الأهداف: $goals', gold, pc),
-                  const SizedBox(width: 10),
-                  _pill(context, Icons.flag, 'الهدف: $target', gold, tc),
-                ]),
-                const SizedBox(height: 10),
                 Expanded(child: _formulaBox(context, pc, tc, gold)),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 _counter(d, prog, pc, tc, gold),
-                const SizedBox(height: 8),
-                Text('$pct٪ من الهدف  •  اضغط على المربع للعدّ',
+                const SizedBox(height: 6),
+                Text('$pct٪ من الهدف  •  اضغط على الدائرة للعدّ',
                     style: TextStyle(fontSize: 12.5, color: hint)),
               ]),
             );
@@ -3128,6 +3173,73 @@ class _InputDialogState extends State<_InputDialog> {
       );
 }
 
+
+// ---------- حلقة الخرز حول العدّاد الدائري ----------
+class _BeadRingPainter extends CustomPainter {
+  final double value;
+  final Color gold;
+  _BeadRingPainter(this.value, this.gold);
+  static const n = 40;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.width / 2 - size.width * .04;
+    canvas.drawCircle(
+      c,
+      r,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = gold.withOpacity(.35),
+    );
+    final v = value.clamp(0.0, 1.0) * n;
+    final lit = v.floor();
+    final frac = v - lit;
+    for (var i = 0; i < n; i++) {
+      final ang = -dmath.pi / 2 + 2 * dmath.pi * i / n;
+      final p = c + Offset(dmath.cos(ang), dmath.sin(ang)) * r;
+      final major = i % 10 == 0;
+      final br = size.width * (major ? .03 : .021);
+      final on = i < lit;
+      final part = i == lit && frac > 0;
+      if (on || part) {
+        final k = on ? 1.0 : frac;
+        canvas.drawCircle(
+          p,
+          br * 1.7,
+          Paint()
+            ..color = gold.withOpacity(.5 * k)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+        );
+        canvas.drawCircle(
+          p,
+          br,
+          Paint()
+            ..shader = RadialGradient(
+              center: const Alignment(-.4, -.4),
+              colors: [Colors.white, gold, Color.lerp(gold, Colors.black, .35)!],
+              stops: const [0, .5, 1],
+            ).createShader(Rect.fromCircle(center: p, radius: br))
+            ..color = Colors.white.withOpacity(.4 + .6 * k),
+        );
+      } else {
+        canvas.drawCircle(p, br, Paint()..color = gold.withOpacity(.2));
+        canvas.drawCircle(
+          p,
+          br,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1
+            ..color = gold.withOpacity(.45),
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BeadRingPainter o) => o.value != value || o.gold != gold;
+}
 
 // ---------- مؤشر تقدم مربع (بديل الدائرة) ----------
 class SquareProgress extends StatelessWidget {
