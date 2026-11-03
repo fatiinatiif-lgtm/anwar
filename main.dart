@@ -2053,6 +2053,7 @@ class LevelScreen extends StatefulWidget {
 class _LevelScreenState extends State<LevelScreen> {
   late int y, m;
   late Set<int> done;
+  final ItemScrollController _sc = ItemScrollController();
   String get key => 'p${widget.level}_${y}_$m';
   int get goal => widget.level * 2000;
   int get days => DateTime(y, m + 1, 0).day;
@@ -2104,6 +2105,7 @@ class _LevelScreenState extends State<LevelScreen> {
     ));
 
   void tick(int d, bool v) {
+    HapticFeedback.selectionClick();
     setState(() => v ? done.add(d) : done.remove(d));
     Repo.prefs.setStringList(key, done.map((e) => '$e').toList());
     wirdTick.value++;
@@ -2146,18 +2148,348 @@ class _LevelScreenState extends State<LevelScreen> {
     checkMonth();
   }
 
+  static const _wd = ['الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت', 'الأحد'];
+
+  // التاريخ الهجري بدون السنة (مثال: 9 شعبان)
+  String _hijriShort(DateTime t) {
+    final p = hijriNow(t).split(' ');
+    return p.length > 2 ? p.sublist(0, p.length - 2).join(' ') : p.join(' ');
+  }
+
+  // زر دائري للتنقّل بين الشهور
+  Widget _navBtn(BuildContext context, IconData ic, VoidCallback? on, String tip) {
+    final ac = accent(context);
+    final hint = Theme.of(context).hintColor;
+    return Tooltip(
+      message: tip,
+      child: Material(
+        color: on == null ? Colors.transparent : ac.withOpacity(.12),
+        shape: CircleBorder(side: BorderSide(color: ac.withOpacity(on == null ? .2 : .6), width: 1.4)),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: on,
+          child: SizedBox(width: 44, height: 44, child: Icon(ic, color: on == null ? hint.withOpacity(.5) : ac)),
+        ),
+      ),
+    );
+  }
+
+  Widget _monthBar(BuildContext context) {
+    final ac = accent(context);
+    final hint = Theme.of(context).hintColor;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 2),
+      child: Row(children: [
+        _navBtn(context, Icons.chevron_right, () => go(-1), 'الشهر السابق'),
+        Expanded(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(months[m - 1], style: TextStyle(fontSize: 26, height: 1.25, fontWeight: FontWeight.bold, color: ac)),
+            Text('$y', style: TextStyle(fontSize: 14, color: hint)),
+          ]),
+        ),
+        _navBtn(context, Icons.chevron_left, isCurrent ? null : () => go(1), 'الشهر التالي'),
+      ]),
+    );
+  }
+
+  Widget _kv(IconData ic, String label, String value, Color gold) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4.5),
+        child: Row(children: [
+          Icon(ic, size: 17, color: gold),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(label,
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13.5, color: Colors.white.withOpacity(.85))),
+          ),
+          Text(value, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.bold, color: Colors.white)),
+        ]),
+      );
+
+  // بطاقة ملخّص الشهر: حلقة خرز بعدد الأيام المنجزة + أرقام مفيدة
+  Widget _summary(BuildContext context, int monthTotal, int streak, int best) {
+    final pc = pri(context), tc = tri(context), sc = sec(context);
+    final gold = Color.lerp(sc, Colors.white, .2)!;
+    final edge = Color.lerp(sc, Colors.white, .25)!;
+    final c1 = Color.lerp(Color.lerp(pc, Colors.white, .06)!, tc, .15)!;
+    final c2 = Color.lerp(Color.lerp(pc, tc, .3)!, Colors.black, .5)!;
+    final prog = days == 0 ? 0.0 : done.length / days;
+    final pct = (prog * 100).round();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 8, 14, 6),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [c1, c2]),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: edge, width: 1.8),
+        boxShadow: [BoxShadow(color: pc.withOpacity(.45), blurRadius: 16, offset: const Offset(0, 6))],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(5),
+        child: Container(
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(21), border: Border.all(color: edge.withOpacity(.5), width: 1)),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Stack(children: [
+              Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: _StarPatternPainter(edge)))),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                child: Column(children: [
+                  Row(children: [
+                    Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('المستوى ${levelNames[widget.level - 1]}',
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                        Text('$goal صلاة يومياً', style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(.82))),
+                      ]),
+                    ),
+                    for (var i = 0; i < 5; i++)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 2),
+                        child: Icon(i < widget.level ? Icons.star : Icons.star_border,
+                            size: 17, color: gold.withOpacity(i < widget.level ? 1 : .45)),
+                      ),
+                  ]),
+                  const SizedBox(height: 10),
+                  const OrnamentDivider(),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    SizedBox(
+                      width: 116,
+                      height: 116,
+                      child: Stack(alignment: Alignment.center, children: [
+                        CustomPaint(size: const Size(116, 116), painter: _BeadRingPainter(prog, gold)),
+                        Column(mainAxisSize: MainAxisSize.min, children: [
+                          Text('${done.length}',
+                              style: const TextStyle(fontSize: 32, height: 1.1, fontWeight: FontWeight.bold, color: Colors.white)),
+                          Text('من $days يوم', style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(.8))),
+                        ]),
+                      ]),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(children: [
+                        _kv(Icons.local_fire_department, 'أيام متتالية', '$streak', gold),
+                        Divider(height: 1, color: gold.withOpacity(.25)),
+                        _kv(Icons.emoji_events, 'أفضل سلسلة', '$best', gold),
+                        Divider(height: 1, color: gold.withOpacity(.25)),
+                        _kv(Icons.favorite, 'صلوات الشهر', fmtNum(monthTotal), gold),
+                        Divider(height: 1, color: gold.withOpacity(.25)),
+                        _kv(Icons.trending_up, 'الإنجاز', '$pct٪', gold),
+                      ]),
+                    ),
+                  ]),
+                ]),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _label(BuildContext context, IconData ic, String t) {
+    final gold = Color.lerp(sec(context), Colors.white, .1)!;
+    final ac = accent(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+      child: Row(children: [
+        Icon(ic, size: 19, color: ac),
+        const SizedBox(width: 8),
+        Text(t, style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: ac)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Container(
+            height: 1.2,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerRight,
+                end: Alignment.centerLeft,
+                colors: [gold.withOpacity(.8), gold.withOpacity(0)],
+              ),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  // بطاقة اليوم: شارة التاريخ + اليوم والتاريخ الهجري + الحالة والتقدّم + دائرة التعليم ✓
+  Widget _dayCard(BuildContext context, int d, int cnt, DateTime today, {bool isToday = false}) {
+    final pc = pri(context), tc = tri(context), sc = sec(context);
+    final ac = accent(context);
+    final gold = Color.lerp(sc, Colors.white, .15)!;
+    final hint = Theme.of(context).hintColor;
+    final card = Theme.of(context).cardColor;
+    final dark = isDark(context);
+    final date = DateTime(y, m, d);
+    final isDone = done.contains(d);
+    final future = date.isAfter(today);
+    final friday = date.weekday == DateTime.friday;
+    final shown = isDone ? (cnt > goal ? cnt : goal) : cnt;
+    final frac = goal == 0 ? 0.0 : (shown / goal).clamp(0.0, 1.0).toDouble();
+    final String status;
+    final Color statusColor;
+    if (isDone) {
+      status = 'تم بحمد الله';
+      statusColor = ac;
+    } else if (future) {
+      status = 'لم يأتِ بعد';
+      statusColor = hint;
+    } else if (cnt > 0) {
+      status = 'متبقي ${goal - cnt}';
+      statusColor = ac;
+    } else if (isToday) {
+      status = 'ابدأ ورد اليوم';
+      statusColor = ac;
+    } else {
+      status = 'لم يكتمل';
+      statusColor = Theme.of(context).colorScheme.error.withOpacity(.85);
+    }
+    final fridayColor = dark ? gold : Color.lerp(sc, Colors.black, .3)!;
+    return Opacity(
+      opacity: future && !isDone ? .72 : 1,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+        decoration: BoxDecoration(
+          color: isDone ? Color.alphaBlend(gold.withOpacity(dark ? .10 : .16), card) : card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isToday ? gold : (isDone ? gold.withOpacity(.6) : Colors.grey.withOpacity(.28)),
+            width: isToday ? 2.2 : 1.2,
+          ),
+          boxShadow: [BoxShadow(color: (isToday ? gold : pc).withOpacity(isToday ? .28 : .10), blurRadius: isToday ? 14 : 8, offset: const Offset(0, 3))],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(20),
+            onTap: () => openDay(d),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+              child: Row(children: [
+                // شارة رقم اليوم
+                Container(
+                  width: 56,
+                  height: 56,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    gradient: LinearGradient(
+                      begin: Alignment.topRight,
+                      end: Alignment.bottomLeft,
+                      colors: [Color.lerp(pc, tc, .35)!, Color.lerp(pc, Colors.black, .4)!],
+                    ),
+                    border: Border.all(color: isToday ? gold : gold.withOpacity(.35), width: isToday ? 2.4 : 1),
+                  ),
+                  child: Text('$d', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    Row(children: [
+                      Flexible(
+                        child: Text(_wd[date.weekday - 1],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: friday ? fridayColor : null)),
+                      ),
+                      if (friday) ...[const SizedBox(width: 4), Icon(Icons.auto_awesome, size: 13, color: fridayColor)],
+                      if (isToday) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                          decoration: BoxDecoration(color: gold, borderRadius: BorderRadius.circular(10)),
+                          child: Text('اليوم', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color.lerp(pc, Colors.black, .5))),
+                        ),
+                      ],
+                    ]),
+                    const SizedBox(height: 1),
+                    Text(_hijriShort(date), style: TextStyle(fontSize: 12, color: hint)),
+                    const SizedBox(height: 5),
+                    Row(children: [
+                      Expanded(
+                        child: Text(status,
+                            maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: statusColor)),
+                      ),
+                      Text('$shown / $goal', style: TextStyle(fontSize: 12, color: hint)),
+                    ]),
+                    const SizedBox(height: 4),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: frac,
+                        minHeight: 6,
+                        backgroundColor: ac.withOpacity(.12),
+                        valueColor: AlwaysStoppedAnimation<Color>(isDone ? gold : ac),
+                      ),
+                    ),
+                  ]),
+                ),
+                const SizedBox(width: 6),
+                // دائرة التعليم ✓
+                Tooltip(
+                  message: isDone ? 'إلغاء التعليم' : 'تعليم اليوم كمنجز',
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => tick(d, !isDone),
+                    child: SizedBox(
+                      width: 56,
+                      height: 56,
+                      child: Center(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 240),
+                          curve: Curves.easeOutCubic,
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isDone ? gold : Colors.transparent,
+                            border: Border.all(color: isDone ? gold : ac.withOpacity(.45), width: 2),
+                            boxShadow: [BoxShadow(color: gold.withOpacity(isDone ? .5 : 0), blurRadius: isDone ? 12 : 0)],
+                          ),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            child: Icon(Icons.check_rounded,
+                                key: ValueKey(isDone),
+                                size: 28,
+                                color: isDone ? Color.lerp(pc, Colors.black, .45) : ac.withOpacity(.32)),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    const hs = TextStyle(fontWeight: FontWeight.bold, color: Colors.white);
     final hint = Theme.of(context).hintColor;
     final streak = wirdStreak();
     final best = Repo.prefs.getInt('wird_best') ?? streak;
-    final pct = done.length * 100 ~/ days;
-    final today = DateTime.now().day;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final counts = [for (var d = 1; d <= days; d++) dayCount(d)];
+    var monthTotal = 0;
+    for (var d = 1; d <= days; d++) {
+      final c = counts[d - 1];
+      monthTotal += done.contains(d) ? (c > goal ? c : goal) : c;
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text('المستوى ${levelNames[widget.level - 1]}', style: const TextStyle(fontSize: 17)),
         actions: [
+          if (isCurrent)
+            IconButton(
+              tooltip: 'الذهاب إلى اليوم',
+              icon: const Icon(Icons.today),
+              onPressed: () => _sc.scrollTo(index: now.day, duration: const Duration(milliseconds: 450), curve: Curves.easeOutCubic),
+            ),
           IconButton(
             tooltip: 'الإحصائيات',
             icon: const Icon(Icons.bar_chart),
@@ -2165,90 +2497,42 @@ class _LevelScreenState extends State<LevelScreen> {
           ),
         ],
       ),
-      body: Column(children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
-          child: Row(children: [
-            TextButton(
-              onPressed: () => go(-1),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.chevron_left), Text('السابق')]),
-            ),
-            Expanded(
-              child: Text('${months[m - 1]} $y',
-                  textAlign: TextAlign.center, style: const TextStyle(fontSize: 19, fontWeight: FontWeight.bold)),
-            ),
-            TextButton(
-              onPressed: isCurrent ? null : () => go(1),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [Text('التالي'), Icon(Icons.chevron_right)]),
-            ),
-          ]),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(14, 4, 14, 8),
+      body: PageBackdrop(
+        child: SafeArea(
           child: Column(children: [
-            Text('أنجزت ${done.length} من $days يوم  •  ${done.length * goal} صلاة',
-                style: TextStyle(fontSize: 16, color: accent(context))),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(value: done.length / days, minHeight: 10),
-            ),
-            const SizedBox(height: 4),
-            Text('$pct% من الشهر', style: TextStyle(color: hint)),
-            const SizedBox(height: 6),
-            Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-              Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.local_fire_department, color: sec(context)),
-                const SizedBox(width: 4),
-                Text('أيام متتالية: $streak', style: const TextStyle(fontSize: 15)),
-              ]),
-              Text('أفضل سلسلة: $best', style: const TextStyle(fontSize: 15)),
-            ]),
-            const SizedBox(height: 4),
-            Text('اضغط على اليوم لفتح ورده وعدّه', style: TextStyle(fontSize: 13, color: hint)),
-          ]),
-        ),
-        Container(
-          color: pri(context),
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-          child: const Row(children: [
-            Expanded(child: Text('اليوم', style: hs)),
-            Expanded(flex: 2, child: Text('ورد اليوم', style: hs)),
-            SizedBox(width: 48, child: Text('تم', style: hs)),
-          ]),
-        ),
-        Expanded(
-          child: ListView.builder(
-            itemCount: days,
-            itemBuilder: (_, k) {
-              final d = k + 1;
-              final isDone = done.contains(d);
-              final cnt = dayCount(d);
-              final shown = isDone ? (cnt > goal ? cnt : goal) : cnt;
-              final bg = (isCurrent && d == today)
-                  ? sec(context).withOpacity(.25)
-                  : (k.isEven ? Theme.of(context).cardColor : Theme.of(context).scaffoldBackgroundColor);
-              return Material(
-                color: bg,
-                child: InkWell(
-                  onTap: () => openDay(d),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(children: [
-                      Expanded(child: Text('$d', style: const TextStyle(fontSize: 16))),
-                      Expanded(flex: 2, child: Text('$shown / $goal', style: const TextStyle(fontSize: 16))),
-                      SizedBox(
-                        width: 48,
-                        child: Checkbox(value: isDone, activeColor: pri(context), onChanged: (v) => tick(d, v ?? false)),
+            _monthBar(context),
+            Expanded(
+              child: ScrollablePositionedList.builder(
+                key: ValueKey('$y-$m'),
+                itemScrollController: _sc,
+                itemCount: days + 1,
+                padding: const EdgeInsets.only(bottom: 24),
+                itemBuilder: (_, i) {
+                  if (i == 0) {
+                    return Column(children: [
+                      _summary(context, monthTotal, streak, best),
+                      if (isCurrent) ...[
+                        _label(context, Icons.wb_sunny_outlined, 'ورد اليوم'),
+                        _dayCard(context, now.day, counts[now.day - 1], today, isToday: true),
+                      ],
+                      _label(context, Icons.calendar_month, 'أيام الشهر'),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: Text('اضغط على اليوم لفتح ورده وعدّه، وعلى الدائرة لتعليمه ✓',
+                              style: TextStyle(fontSize: 12.5, color: hint)),
+                        ),
                       ),
-                    ]),
-                  ),
-                ),
-              );
-            },
-          ),
+                    ]);
+                  }
+                  return _dayCard(context, i, counts[i - 1], today, isToday: isCurrent && i == now.day);
+                },
+              ),
+            ),
+          ]),
         ),
-      ]),
+      ),
     );
   }
 }
