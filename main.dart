@@ -462,84 +462,122 @@ class HomeTab extends StatefulWidget {
   State<HomeTab> createState() => _HomeTabState();
 }
 
-class _HomeTabState extends State<HomeTab> {
+class _HomeTabState extends State<HomeTab> with SingleTickerProviderStateMixin {
   String q = '';
+  late final AnimationController _ac;
+
+  @override
+  void initState() {
+    super.initState();
+    // دورة 24 ثانية؛ كل الحركات مضاعفات صحيحة لها فبتتكرر بدون "نَطّة"
+    _ac = AnimationController(vsync: this, duration: const Duration(seconds: 24))..repeat();
+    if (shellIndex.value != 0) _ac.stop();
+    shellIndex.addListener(_onTab);
+  }
+
+  // الحركة بتقف لما تسيبي الرئيسية عشان توفّر البطارية
+  void _onTab() {
+    if (!mounted) return;
+    if (shellIndex.value == 0) {
+      if (!_ac.isAnimating) _ac.repeat();
+    } else {
+      _ac.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    shellIndex.removeListener(_onTab);
+    _ac.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final res = Repo.search(q);
-    return Column(children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
-        child: Row(children: [
-          Expanded(
-            child: TextField(
-              onChanged: (v) => setState(() => q = v),
-              decoration: InputDecoration(
-                hintText: 'ابحث في عناوين كل الكتب...',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Theme.of(context).cardColor,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
+    return Stack(fit: StackFit.expand, children: [
+      _HomeBackdrop(t: _ac),
+      Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+          child: Row(children: [
+            Expanded(
+              child: TextField(
+                onChanged: (v) => setState(() => q = v),
+                decoration: InputDecoration(
+                  hintText: 'ابحث في عناوين كل الكتب...',
+                  prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  fillColor: Theme.of(context).cardColor,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
+                ),
               ),
             ),
-          ),
-          IconButton(
-            tooltip: 'الوضع الليلي',
-            icon: Icon(isDark(context) ? Icons.light_mode : Icons.dark_mode),
-            onPressed: toggleDark,
-          ),
-        ]),
-      ),
-      Expanded(
-        child: q.trim().isEmpty
-            ? ListView(children: [
-                const Clock(),
-                const SizedBox(height: 14),
-                const AuthorPhoto(),
-                const SizedBox(height: 12),
-                Center(child: Text('شاعر رسول الله ﷺ', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: accent(context)))),
-                const SizedBox(height: 4),
-                Center(
-                  child: Text('الشيخ عبدالرحمن مصطفى الأزهري',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface)),
-                ),
-                const SizedBox(height: 14),
-                HomeActionCard(
-                  icon: Icons.person,
-                  title: 'التعريف بالكاتب',
-                  subtitle: 'تعرّف على الكاتب وسيرته',
-                  onTap: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const TextScreen('التعريف بالكاتب', 'assets/texts/author.txt'))),
-                ),
-                const SizedBox(height: 10),
-                HomeActionCard(
-                  icon: Icons.favorite,
-                  title: 'فضل الصلاة والسلام على الحبيب ﷺ',
-                  subtitle: 'ما ورد في فضل الصلاة على النبي ﷺ',
-                  gold: true,
-                  onTap: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => const TextScreen('فضل الصلاة والسلام على الحبيب ﷺ', 'assets/texts/fadl_salah.txt'))),
-                ),
-                const SizedBox(height: 22),
-                const TodayWirdCard(),
-                const SizedBox(height: 10),
-                const ContinueReadingCard(),
-                const SizedBox(height: 24),
-              ])
-            : res.isEmpty
-                ? const Center(child: Text('لا توجد نتائج'))
-                : ListView.separated(
-                    itemCount: res.length,
-                    separatorBuilder: (_, __) => const Divider(height: 1),
-                    itemBuilder: (_, k) {
-                      final e = res[k], b = Repo.byId(e.book);
-                      return ListTile(
-                        title: Text(e.title),
-                        subtitle: Text('${b.title} • صفحة ${e.page}'),
-                        onTap: () => openPdf(context, b, e.page),
-                      );
-                    }),
-      ),
+            IconButton(
+              tooltip: 'الوضع الليلي',
+              icon: Icon(isDark(context) ? Icons.light_mode : Icons.dark_mode),
+              onPressed: toggleDark,
+            ),
+          ]),
+        ),
+        Expanded(
+          child: q.trim().isEmpty
+              ? ListView(padding: EdgeInsets.zero, children: [
+                  _HeroFrame(t: _ac),
+                  const SizedBox(height: 4),
+                  const _TitleRibbon(),
+                  const SizedBox(height: 18),
+                  const Clock(),
+                  const SizedBox(height: 16),
+                  const _SalawatCarousel(),
+                  const SizedBox(height: 22),
+                  const _SectionTitle('الوصول السريع'),
+                  const SizedBox(height: 12),
+                  const _QuickGrid(),
+                  const SizedBox(height: 22),
+                  const _SectionTitle('عن الكاتب'),
+                  const SizedBox(height: 12),
+                  HomeActionCard(
+                    icon: Icons.person,
+                    title: 'التعريف بالكاتب',
+                    subtitle: 'تعرّف على الكاتب وسيرته',
+                    onTap: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const TextScreen('التعريف بالكاتب', 'assets/texts/author.txt'))),
+                  ),
+                  const SizedBox(height: 10),
+                  HomeActionCard(
+                    icon: Icons.favorite,
+                    title: 'فضل الصلاة والسلام على الحبيب ﷺ',
+                    subtitle: 'ما ورد في فضل الصلاة على النبي ﷺ',
+                    gold: true,
+                    onTap: () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const TextScreen('فضل الصلاة والسلام على الحبيب ﷺ', 'assets/texts/fadl_salah.txt'))),
+                  ),
+                  const SizedBox(height: 22),
+                  const _SectionTitle('وردك اليومي'),
+                  const SizedBox(height: 12),
+                  const TodayWirdCard(),
+                  const SizedBox(height: 10),
+                  const ContinueReadingCard(),
+                  const SizedBox(height: 26),
+                  const _HomeFooter(),
+                  const SizedBox(height: 26),
+                ])
+              : res.isEmpty
+                  ? const Center(child: Text('لا توجد نتائج'))
+                  : ListView.separated(
+                      itemCount: res.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, k) {
+                        final e = res[k], b = Repo.byId(e.book);
+                        return ListTile(
+                          title: Text(e.title),
+                          subtitle: Text('${b.title} • صفحة ${e.page}'),
+                          onTap: () => openPdf(context, b, e.page),
+                        );
+                      }),
+        ),
+      ]),
     ]);
   }
 }
@@ -622,6 +660,599 @@ class HomeActionCard extends StatelessWidget {
   }
 }
 
+// ================= الرئيسية المزخرفة =================
+
+// خلفية: تدرّج + نقش النجوم + نجوم صغيرة بتلمع
+class _HomeBackdrop extends StatelessWidget {
+  final Animation<double> t;
+  const _HomeBackdrop({required this.t});
+
+  static final List<List<double>> _pts = () {
+    final r = dmath.Random(11);
+    return List.generate(34, (_) => [r.nextDouble(), r.nextDouble(), r.nextDouble() * 6.2832, 2 + r.nextDouble() * 3.5]);
+  }();
+
+  @override
+  Widget build(BuildContext context) => Stack(fit: StackFit.expand, children: [
+        const PageBackdrop(child: SizedBox.shrink()),
+        IgnorePointer(child: RepaintBoundary(child: CustomPaint(painter: _TwinklePainter(t, _pts, sec(context))))),
+      ]);
+}
+
+class _TwinklePainter extends CustomPainter {
+  final Animation<double> t;
+  final List<List<double>> pts;
+  final Color color;
+  _TwinklePainter(this.t, this.pts, this.color) : super(repaint: t);
+
+  @override
+  void paint(Canvas c, Size s) {
+    final p = Paint()..style = PaintingStyle.fill;
+    for (final q in pts) {
+      final a = (dmath.sin(t.value * 2 * dmath.pi * 12 + q[2]) + 1) / 2;
+      p.color = color.withOpacity(.10 + .45 * a);
+      final o = Offset(q[0] * s.width, q[1] * s.height);
+      final r = q[3] * (.6 + .4 * a);
+      final path = Path()
+        ..moveTo(o.dx, o.dy - r * 1.8)
+        ..quadraticBezierTo(o.dx, o.dy, o.dx + r * 1.8, o.dy)
+        ..quadraticBezierTo(o.dx, o.dy, o.dx, o.dy + r * 1.8)
+        ..quadraticBezierTo(o.dx, o.dy, o.dx - r * 1.8, o.dy)
+        ..quadraticBezierTo(o.dx, o.dy, o.dx, o.dy - r * 1.8)
+        ..close();
+      c.drawPath(path, p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _TwinklePainter old) => old.color != color;
+}
+
+// الإطار المزخرف حول الصورة + الهلال + الفوانيس
+class _HeroFrame extends StatelessWidget {
+  final Animation<double> t;
+  const _HeroFrame({required this.t});
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = isDark(context);
+    return SizedBox(
+      height: 348,
+      child: Stack(alignment: Alignment.topCenter, children: [
+        Positioned(
+          top: 30,
+          child: SizedBox(
+            width: 316,
+            height: 316,
+            child: Stack(alignment: Alignment.center, children: [
+              RepaintBoundary(
+                child: CustomPaint(
+                  size: const Size(316, 316),
+                  painter: _OrnatePainter(t, sec(context), pri(context), tri(context), dark),
+                ),
+              ),
+              const AuthorPhoto(size: 164),
+            ]),
+          ),
+        ),
+        Positioned(top: 0, child: CustomPaint(size: const Size(30, 28), painter: _CrescentPainter(sec(context)))),
+        Positioned(top: 0, left: 12, child: _Lantern(t: t, len: 44, phase: 0)),
+        Positioned(top: 0, right: 12, child: _Lantern(t: t, len: 62, phase: 2)),
+      ]),
+    );
+  }
+}
+
+class _OrnatePainter extends CustomPainter {
+  final Animation<double> t;
+  final Color gold, deep, third;
+  final bool dark;
+  _OrnatePainter(this.t, this.gold, this.deep, this.third, this.dark) : super(repaint: t);
+
+  static Path _petal(double len, double w) => Path()
+    ..moveTo(0, 0)
+    ..quadraticBezierTo(w, -len * .55, 0, -len)
+    ..quadraticBezierTo(-w, -len * .55, 0, 0)
+    ..close();
+
+  static Path _star8(double r) {
+    final p = Path();
+    for (var k = 0; k < 16; k++) {
+      final rr = k.isEven ? r : r * .55;
+      final a = -dmath.pi / 2 + k * dmath.pi / 8;
+      final pt = Offset(dmath.cos(a) * rr, dmath.sin(a) * rr);
+      if (k == 0) {
+        p.moveTo(pt.dx, pt.dy);
+      } else {
+        p.lineTo(pt.dx, pt.dy);
+      }
+    }
+    p.close();
+    return p;
+  }
+
+  @override
+  void paint(Canvas c, Size s) {
+    final ctr = Offset(s.width / 2, s.height / 2);
+    final r0 = s.width / 2;
+    final ang = t.value * 2 * dmath.pi;
+    final light = Color.lerp(gold, Colors.white, .5)!;
+    final fillGold = Paint()..color = gold.withOpacity(.95);
+    final fillLight = Paint()..color = light;
+    final fillThird = Paint()..color = Color.lerp(third, Colors.white, dark ? .1 : 0)!.withOpacity(.85);
+    final stroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = light.withOpacity(.9);
+
+    // هالة مضيئة
+    c.drawCircle(
+      ctr,
+      r0,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [gold.withOpacity(dark ? .40 : .34), gold.withOpacity(0)],
+          stops: const [.6, 1.0],
+        ).createShader(Rect.fromCircle(center: ctr, radius: r0)),
+    );
+
+    // حلقة البتلات (بتدور ببطء) + نقط صغيرة بينها
+    final petal = _petal(28, 7.5);
+    for (var i = 0; i < 24; i++) {
+      final base = ang * .25 + i * 2 * dmath.pi / 24;
+      c.save();
+      c.translate(ctr.dx, ctr.dy);
+      c.rotate(base);
+      c.translate(0, -(r0 - 30));
+      c.drawPath(petal, i.isEven ? fillGold : fillThird);
+      c.drawPath(petal, stroke);
+      c.restore();
+      final a = base + dmath.pi / 24 - dmath.pi / 2;
+      c.drawCircle(ctr + Offset(dmath.cos(a), dmath.sin(a)) * (r0 - 18), 2.3, fillLight);
+    }
+
+    // دائرة رفيعة
+    c.drawCircle(ctr, r0 - 36, stroke..strokeWidth = 1.2);
+
+    // نجوم ثمانية بتدور عكس الاتجاه
+    final star = _star8(8.5);
+    for (var i = 0; i < 16; i++) {
+      final a = -ang * .25 + i * 2 * dmath.pi / 16;
+      c.save();
+      c.translate(ctr.dx + dmath.cos(a) * (r0 - 46), ctr.dy + dmath.sin(a) * (r0 - 46));
+      c.rotate(a + dmath.pi / 2);
+      c.drawPath(star, i.isEven ? fillLight : fillGold);
+      c.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _OrnatePainter old) => old.gold != gold || old.third != third || old.dark != dark;
+}
+
+class _CrescentPainter extends CustomPainter {
+  final Color color;
+  const _CrescentPainter(this.color);
+
+  @override
+  void paint(Canvas c, Size s) {
+    final h = s.height;
+    final ctr = Offset(s.width / 2, h / 2);
+    final outer = Path()..addOval(Rect.fromCircle(center: ctr, radius: h / 2));
+    final inner = Path()..addOval(Rect.fromCircle(center: ctr + Offset(h * .24, -h * .08), radius: h * .42));
+    final cres = Path.combine(PathOperation.difference, outer, inner);
+    c.drawPath(
+      cres,
+      Paint()
+        ..color = color.withOpacity(.55)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+    );
+    c.drawPath(cres, Paint()..color = color);
+    c.save();
+    c.translate(ctr.dx + h * .30, ctr.dy - h * .10);
+    c.drawPath(_OrnatePainter._star8(4.5), Paint()..color = color);
+    c.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _CrescentPainter old) => old.color != color;
+}
+
+// فانوس بيتأرجح وشمعته بتتراقص
+class _Lantern extends StatelessWidget {
+  final Animation<double> t;
+  final double len, phase;
+  const _Lantern({required this.t, required this.len, this.phase = 0});
+
+  @override
+  Widget build(BuildContext context) {
+    final g = sec(context), p = pri(context), th = tri(context);
+    return AnimatedBuilder(
+      animation: t,
+      builder: (_, __) {
+        final sw = dmath.sin(t.value * 2 * dmath.pi * 8 + phase) * .09;
+        final fl = .7 + .3 * dmath.sin(t.value * 2 * dmath.pi * 24 + phase * 3);
+        return Transform.rotate(
+          angle: sw,
+          alignment: Alignment.topCenter,
+          child: CustomPaint(size: Size(38, len + 64), painter: _LanternPainter(g, p, th, len, fl)),
+        );
+      },
+    );
+  }
+}
+
+class _LanternPainter extends CustomPainter {
+  final Color gold, deep, third;
+  final double len, flame;
+  const _LanternPainter(this.gold, this.deep, this.third, this.len, this.flame);
+
+  @override
+  void paint(Canvas c, Size s) {
+    final cx = s.width / 2;
+    final top = len + 3;
+    final line = Paint()
+      ..color = gold
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    // السلسلة والحلقة
+    c.drawLine(Offset(cx, 0), Offset(cx, len), line);
+    c.drawCircle(Offset(cx, len), 3, line);
+    // توهّج الشمعة
+    c.drawCircle(
+      Offset(cx, top + 32),
+      26,
+      Paint()
+        ..shader = RadialGradient(colors: [const Color(0xFFFFD54F).withOpacity(.55 * flame), const Color(0xFFFFD54F).withOpacity(0)])
+            .createShader(Rect.fromCircle(center: Offset(cx, top + 32), radius: 26)),
+    );
+    // القبّة
+    final cap = Path()
+      ..moveTo(cx - 9, top + 11)
+      ..quadraticBezierTo(cx, top - 4, cx + 9, top + 11)
+      ..close();
+    c.drawPath(cap, Paint()..color = gold);
+    // الجسم
+    final body = Path()
+      ..moveTo(cx - 8, top + 11)
+      ..lineTo(cx + 8, top + 11)
+      ..lineTo(cx + 15, top + 30)
+      ..lineTo(cx + 8, top + 50)
+      ..lineTo(cx - 8, top + 50)
+      ..lineTo(cx - 15, top + 30)
+      ..close();
+    c.drawPath(body, Paint()..color = Color.lerp(gold, deep, .55)!.withOpacity(.9));
+    // لهب
+    c.drawOval(Rect.fromCenter(center: Offset(cx, top + 32), width: 7, height: 15), Paint()..color = Colors.white.withOpacity(.55 + .4 * flame));
+    c.drawOval(Rect.fromCenter(center: Offset(cx, top + 34), width: 4, height: 9), Paint()..color = const Color(0xFFFFB300).withOpacity(.9));
+    // أضلاع وإطار ذهبي
+    final rib = Paint()
+      ..color = gold.withOpacity(.8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = .9;
+    c.drawLine(Offset(cx - 4.5, top + 12), Offset(cx - 4.5, top + 49), rib);
+    c.drawLine(Offset(cx + 4.5, top + 12), Offset(cx + 4.5, top + 49), rib);
+    c.drawPath(body, line..strokeWidth = 1.3);
+    // القاعدة
+    final tip = Path()
+      ..moveTo(cx - 6, top + 50)
+      ..lineTo(cx + 6, top + 50)
+      ..lineTo(cx, top + 60)
+      ..close();
+    c.drawPath(tip, Paint()..color = gold);
+  }
+
+  @override
+  bool shouldRepaint(covariant _LanternPainter old) => old.flame != flame || old.gold != gold || old.deep != deep;
+}
+
+// شريط العنوان تحت الصورة
+class _TitleRibbon extends StatelessWidget {
+  const _TitleRibbon();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = sec(context), p = pri(context), th = tri(context);
+    final dark = isDark(context);
+    return Column(children: [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 9),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [Color.lerp(p, Colors.black, .15)!, Color.lerp(p, th, .5)!, Color.lerp(p, Colors.black, .15)!]),
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: s, width: 1.6),
+          boxShadow: [BoxShadow(color: s.withOpacity(.35), blurRadius: 14, offset: const Offset(0, 4))],
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.auto_awesome, color: s, size: 16),
+          const SizedBox(width: 10),
+          const Text('شاعر رسول الله ﷺ', style: TextStyle(fontSize: 21, fontWeight: FontWeight.bold, color: Colors.white)),
+          const SizedBox(width: 10),
+          Icon(Icons.auto_awesome, color: s, size: 16),
+        ]),
+      ),
+      const SizedBox(height: 10),
+      Text('الشيخ عبدالرحمن مصطفى الأزهري',
+          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: dark ? Colors.white : Color.lerp(p, Colors.black, .25))),
+      const SizedBox(height: 8),
+      const Padding(padding: EdgeInsets.symmetric(horizontal: 48), child: OrnamentDivider()),
+    ]);
+  }
+}
+
+// عنوان قسم مزخرف
+class _SectionTitle extends StatelessWidget {
+  final String text;
+  const _SectionTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    final s = sec(context);
+    Widget line(bool fadeLeft) => Expanded(
+          child: Container(
+            height: 1.3,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: fadeLeft ? [s.withOpacity(0), s] : [s, s.withOpacity(0)]),
+            ),
+          ),
+        );
+    Widget dia() => Transform.rotate(angle: dmath.pi / 4, child: Container(width: 7, height: 7, color: s));
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Directionality(
+        textDirection: TextDirection.ltr,
+        child: Row(children: [
+          line(true),
+          const SizedBox(width: 8),
+          dia(),
+          const SizedBox(width: 10),
+          Text(text, textDirection: TextDirection.rtl, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: accent(context))),
+          const SizedBox(width: 10),
+          dia(),
+          const SizedBox(width: 8),
+          line(false),
+        ]),
+      ),
+    );
+  }
+}
+
+// زخارف الأركان (بتتستخدم فوق البطاقات)
+class _CornerPainter extends CustomPainter {
+  final Color color;
+  const _CornerPainter(this.color);
+
+  @override
+  void paint(Canvas c, Size s) {
+    final p = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.3
+      ..strokeCap = StrokeCap.round;
+    final f = Paint()..color = color;
+    void corner() {
+      final path = Path()
+        ..moveTo(10, 38)
+        ..lineTo(10, 18)
+        ..quadraticBezierTo(10, 10, 18, 10)
+        ..lineTo(38, 10);
+      c.drawPath(path, p);
+      c.drawCircle(const Offset(10, 10), 2.4, f);
+      c.drawArc(const Rect.fromLTWH(16, 16, 12, 12), dmath.pi, dmath.pi / 2, false, p);
+    }
+
+    corner();
+    c.save();
+    c.translate(s.width, 0);
+    c.scale(-1, 1);
+    corner();
+    c.restore();
+    c.save();
+    c.translate(0, s.height);
+    c.scale(1, -1);
+    corner();
+    c.restore();
+    c.save();
+    c.translate(s.width, s.height);
+    c.scale(-1, -1);
+    corner();
+    c.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _CornerPainter old) => old.color != color;
+}
+
+// بطاقة آية/حديث/صيغة صلاة بتتبدّل لوحدها
+class _SalawatCarousel extends StatefulWidget {
+  const _SalawatCarousel();
+  @override
+  State<_SalawatCarousel> createState() => _SalawatCarouselState();
+}
+
+class _SalawatCarouselState extends State<_SalawatCarousel> {
+  static const items = <List<String>>[
+    ['قال الله تعالى', '﴿ إِنَّ اللَّهَ وَمَلَائِكَتَهُ يُصَلُّونَ عَلَى النَّبِيِّ ۚ يَا أَيُّهَا الَّذِينَ آمَنُوا صَلُّوا عَلَيْهِ وَسَلِّمُوا تَسْلِيمًا ﴾', 'سورة الأحزاب - الآية ٥٦'],
+    ['قال رسول الله ﷺ', 'مَنْ صَلَّى عَلَيَّ وَاحِدَةً صَلَّى اللَّهُ عَلَيْهِ عَشْرًا', 'رواه مسلم'],
+    ['صلاة على النبي ﷺ', 'اللَّهُمَّ صَلِّ وَسَلِّمْ وَبَارِكْ عَلَى سَيِّدِنَا مُحَمَّدٍ وَعَلَى آلِهِ وَصَحْبِهِ أَجْمَعِينَ', ''],
+    ['قال رسول الله ﷺ', 'إِنَّ أَوْلَى النَّاسِ بِي يَوْمَ الْقِيَامَةِ أَكْثَرُهُمْ عَلَيَّ صَلَاةً', 'رواه الترمذي'],
+  ];
+
+  int i = 0;
+  late Timer _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 9), (_) => _next());
+  }
+
+  void _next() {
+    if (mounted) setState(() => i = (i + 1) % items.length);
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = sec(context), a = accent(context), dark = isDark(context);
+    final it = items[i];
+    return GestureDetector(
+      onTap: _next,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: dark
+                ? [Theme.of(context).cardColor, Color.lerp(Theme.of(context).cardColor, s, .10)!]
+                : [Colors.white, Color.lerp(Colors.white, s, .16)!],
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: s.withOpacity(.85), width: 1.5),
+          boxShadow: [BoxShadow(color: s.withOpacity(.22), blurRadius: 14, offset: const Offset(0, 5))],
+        ),
+        child: Stack(children: [
+          Positioned.fill(child: IgnorePointer(child: CustomPaint(painter: _CornerPainter(s)))),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(26, 20, 26, 14),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 170),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 500),
+                  transitionBuilder: (w, anim) => FadeTransition(
+                    opacity: anim,
+                    child: SlideTransition(position: Tween(begin: const Offset(0, .08), end: Offset.zero).animate(anim), child: w),
+                  ),
+                  child: Column(
+                    key: ValueKey(i),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(it[0], style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: s)),
+                      const SizedBox(height: 10),
+                      Text(it[1],
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 19, height: 1.9, fontWeight: FontWeight.w600, color: dark ? Colors.white : Color.lerp(a, Colors.black, .2))),
+                      if (it[2].isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(it[2], style: TextStyle(fontSize: 13, color: Theme.of(context).hintColor)),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                for (var k = 0; k < items.length; k++)
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: k == i ? 20 : 7,
+                    height: 7,
+                    decoration: BoxDecoration(color: k == i ? s : s.withOpacity(.3), borderRadius: BorderRadius.circular(4)),
+                  ),
+              ]),
+            ]),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// شبكة الوصول السريع
+class _QuickGrid extends StatelessWidget {
+  const _QuickGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    void go(Widget w) => Navigator.push(context, MaterialPageRoute(builder: (_) => w));
+    final tiles = <Widget>[
+      _QuickTile(k: 0, icon: Icons.menu_book, label: 'الكتب', onTap: () => shellIndex.value = 1),
+      _QuickTile(k: 1, icon: Icons.auto_awesome, label: 'الأنوار', onTap: () => go(const AnwarMenuScreen())),
+      _QuickTile(k: 2, icon: Icons.blur_circular, label: 'السبحة', onTap: () => go(const SebhaScreen())),
+      _QuickTile(k: 3, icon: Icons.event_available, label: 'منهج الصلاة', onTap: () => shellIndex.value = 2),
+      _QuickTile(k: 4, icon: Icons.insights, label: 'إحصائياتي', onTap: () => go(const StatsScreen())),
+      _QuickTile(k: 5, icon: Icons.bookmarks, label: 'علاماتي', onTap: () => go(const BookmarksScreen())),
+      _QuickTile(k: 6, icon: Icons.star, label: 'المفضلة', onTap: () => shellIndex.value = 3),
+      _QuickTile(k: 7, icon: Icons.palette, label: 'الألوان', onTap: () => go(const ColorsScreen())),
+    ];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: LayoutBuilder(builder: (_, bc) {
+        final w = (bc.maxWidth - 30) / 4;
+        return Wrap(spacing: 10, runSpacing: 14, children: [for (final t in tiles) SizedBox(width: w, child: t)]);
+      }),
+    );
+  }
+}
+
+class _QuickTile extends StatelessWidget {
+  final int k;
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _QuickTile({required this.k, required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final p = pri(context), s = sec(context), th = tri(context);
+    final base = [p, th, Color.lerp(s, Colors.black, .3)!][k % 3];
+    final c1 = Color.lerp(base, Colors.white, .08)!;
+    final c2 = Color.lerp(Color.lerp(base, p, .3)!, Colors.black, .32)!;
+    final edge = Color.lerp(s, Colors.white, .25)!;
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      child: Column(children: [
+        Container(
+          width: double.infinity,
+          height: 64,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [c1, c2]),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: edge.withOpacity(.8), width: 1.3),
+            boxShadow: [BoxShadow(color: base.withOpacity(.35), blurRadius: 9, offset: const Offset(0, 4))],
+          ),
+          child: Icon(icon, color: Colors.white, size: 30),
+        ),
+        const SizedBox(height: 6),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(label, maxLines: 1, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.onSurface)),
+        ),
+      ]),
+    );
+  }
+}
+
+// ختام الصفحة
+class _HomeFooter extends StatelessWidget {
+  const _HomeFooter();
+
+  @override
+  Widget build(BuildContext context) {
+    final s = sec(context);
+    return Column(children: [
+      const Padding(padding: EdgeInsets.symmetric(horizontal: 40), child: OrnamentDivider()),
+      const SizedBox(height: 12),
+      Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(Icons.favorite, size: 14, color: s),
+        const SizedBox(width: 8),
+        Text('اللهم صلِّ وسلِّم على سيدنا محمد', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: accent(context))),
+        const SizedBox(width: 8),
+        Icon(Icons.favorite, size: 14, color: s),
+      ]),
+    ]);
+  }
+}
+
 class Clock extends StatefulWidget {
   const Clock({super.key});
   @override
@@ -644,21 +1275,82 @@ class _ClockState extends State<Clock> {
   }
 
   String two(int n) => n.toString().padLeft(2, '0');
+
+  String greet() {
+    final h = now.hour;
+    if (h < 5) return 'ليلة مباركة';
+    if (h < 12) return 'صباح النور';
+    if (h < 17) return 'طاب يومك';
+    if (h < 20) return 'مساء الخير';
+    return 'ليلة مباركة';
+  }
+
+  Widget pill(IconData ic, String text, Color s, Color deep, bool gold) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: gold ? s : Colors.white.withOpacity(.14),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: gold ? Colors.white.withOpacity(.5) : Colors.white.withOpacity(.25)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(ic, size: 15, color: gold ? deep : Colors.white),
+          const SizedBox(width: 6),
+          Text(text, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: gold ? deep : Colors.white)),
+        ]),
+      );
+
   @override
   Widget build(BuildContext context) {
     final h = now.hour % 12 == 0 ? 12 : now.hour % 12;
-    return Column(children: [
-      Text('${two(h)}:${two(now.minute)}:${two(now.second)} ${now.hour < 12 ? 'ص' : 'م'}',
-          style: TextStyle(fontSize: 38, fontWeight: FontWeight.bold, color: accent(context))),
-      Text('${now.day} ${months[now.month - 1]} ${now.year}', style: TextStyle(fontSize: 16, color: Theme.of(context).hintColor)),
-      const SizedBox(height: 4),
-      Text(hijriNow(now), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: accent(context))),
-    ]);
+    final p = pri(context), s = sec(context), th = tri(context);
+    final c1 = Color.lerp(p, Colors.white, .06)!;
+    final c2 = Color.lerp(Color.lerp(p, th, .35)!, Colors.black, .38)!;
+    final edge = Color.lerp(s, Colors.white, .25)!;
+    final deep = Color.lerp(p, Colors.black, .55)!;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: [c1, c2]),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(color: edge.withOpacity(.85), width: 1.6),
+        boxShadow: [BoxShadow(color: p.withOpacity(.4), blurRadius: 16, offset: const Offset(0, 6))],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(25),
+        child: Stack(children: [
+          Positioned(left: -16, bottom: -20, child: FaIcon(FontAwesomeIcons.mosque, size: 120, color: Colors.white.withOpacity(.08))),
+          Positioned.fill(child: IgnorePointer(child: CustomPaint(painter: _CornerPainter(edge.withOpacity(.75))))),
+          SizedBox(
+            width: double.infinity,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text(greet(), style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600, color: edge)),
+                const SizedBox(height: 2),
+                Text.rich(
+                  TextSpan(
+                    text: '${two(h)}:${two(now.minute)}:${two(now.second)} ',
+                    style: const TextStyle(fontSize: 42, fontWeight: FontWeight.bold, color: Colors.white, shadows: [Shadow(color: Colors.black38, blurRadius: 8)]),
+                    children: [TextSpan(text: now.hour < 12 ? 'ص' : 'م', style: TextStyle(fontSize: 20, color: edge))],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 6, children: [
+                  pill(Icons.calendar_today, '${now.day} ${months[now.month - 1]} ${now.year}', s, deep, false),
+                  pill(Icons.nights_stay, hijriNow(now), s, deep, true),
+                ]),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
   }
 }
 
 class AuthorPhoto extends StatelessWidget {
-  const AuthorPhoto({super.key});
+  final double size;
+  const AuthorPhoto({super.key, this.size = 215});
   @override
   Widget build(BuildContext context) => Center(
         child: Container(
@@ -674,7 +1366,7 @@ class AuthorPhoto extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(4),
               decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
-              child: ClipOval(child: Image.asset('assets/images/author.png', width: 215, height: 215, fit: BoxFit.cover, cacheWidth: 640)),
+              child: ClipOval(child: Image.asset('assets/images/author.png', width: size, height: size, fit: BoxFit.cover, cacheWidth: 640)),
             ),
           ),
         ),
