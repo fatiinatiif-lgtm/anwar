@@ -2876,93 +2876,189 @@ class _SebhaScreenState extends State<SebhaScreen> {
         }),
       );
 
+  // شارة صغيرة زخرفية (الأهداف المكتملة / العدد المستهدف)
+  Widget _pill(BuildContext context, IconData ic, String t, Color gold, Color tint) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: tint.withOpacity(.16),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: gold.withOpacity(.8), width: 1.2),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(ic, size: 16, color: gold),
+          const SizedBox(width: 6),
+          Text(t,
+              style: TextStyle(
+                  fontSize: 13.5, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface)),
+        ]),
+      );
+
+  Widget _corner(Color gold, {double? top, double? bottom, double? left, double? right}) => Positioned(
+        top: top,
+        bottom: bottom,
+        left: left,
+        right: right,
+        child: Icon(Icons.auto_awesome, size: 15, color: gold.withOpacity(.85)),
+      );
+
+  // بطاقة الصيغة: خلفية متدرجة بألوان الثيم + إطار ذهبي مزدوج + نقش نجوم + زخارف الزوايا
+  Widget _formulaBox(BuildContext context, Color pc, Color tc, Color gold) {
+    final text = sebhaFormulas[sel];
+    final textColor = Color.lerp(Colors.white, gold, .12)!;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color.lerp(pc, Colors.black, .2)!, Color.lerp(Color.lerp(pc, tc, .4)!, Colors.black, .55)!],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: gold, width: 2),
+        boxShadow: [BoxShadow(color: pc.withOpacity(.45), blurRadius: 16, offset: const Offset(0, 6))],
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: gold.withOpacity(.55), width: 1),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(17),
+          child: Stack(fit: StackFit.expand, children: [
+            RepaintBoundary(child: CustomPaint(painter: _StarPatternPainter(gold))),
+            LayoutBuilder(builder: (ctx, bc) {
+              final w = bc.maxWidth - 40;
+              final avail = bc.maxHeight - 76;
+              final scaler = MediaQuery.textScalerOf(ctx);
+              final dts = DefaultTextStyle.of(ctx).style;
+              double heightAt(double f) {
+                final tp = TextPainter(
+                  text: TextSpan(text: text, style: dts.merge(TextStyle(fontSize: f, height: 1.8, fontWeight: FontWeight.bold))),
+                  textDirection: TextDirection.rtl,
+                  textAlign: TextAlign.center,
+                  textScaler: scaler,
+                )..layout(maxWidth: w);
+                final h = tp.height;
+                tp.dispose();
+                return h;
+              }
+
+              var fs = 32.0;
+              while (fs > 14 && heightAt(fs) > avail) {
+                fs -= 1;
+              }
+              return Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    SizedBox(width: w * .5, child: const OrnamentDivider()),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: w,
+                      child: Text(text,
+                          textAlign: TextAlign.center,
+                          textDirection: TextDirection.rtl,
+                          style: TextStyle(fontSize: fs, height: 1.8, fontWeight: FontWeight.bold, color: textColor)),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(width: w * .5, child: const OrnamentDivider()),
+                  ]),
+                ),
+              );
+            }),
+            _corner(gold, top: 8, right: 8),
+            _corner(gold, top: 8, left: 8),
+            _corner(gold, bottom: 8, right: 8),
+            _corner(gold, bottom: 8, left: 8),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  // العدّاد: مربع مدوّر بتدرّج لوني وإطار ذهبي ومؤشر تقدّم ذهبي حوله
+  Widget _counter(double d, double prog, Color pc, Color tc, Color gold) => GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: tap,
+        child: SizedBox(
+          width: d,
+          height: d,
+          child: Stack(alignment: Alignment.center, children: [
+            Container(
+              width: d,
+              height: d,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(d * .2),
+                color: gold.withOpacity(.10),
+              ),
+            ),
+            SquareProgress(size: d, value: prog, color: gold),
+            Container(
+              width: d * .8,
+              height: d * .8,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(d * .15),
+                gradient: LinearGradient(
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                  colors: [Color.lerp(pc, tc, .35)!, Color.lerp(pc, Colors.black, .4)!],
+                ),
+                border: Border.all(color: gold, width: 1.8),
+                boxShadow: [BoxShadow(color: pc.withOpacity(.5), blurRadius: 16, spreadRadius: 1, offset: const Offset(0, 4))],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(d * .15 - 2),
+                child: Stack(alignment: Alignment.center, children: [
+                  RepaintBoundary(child: CustomPaint(size: Size(d * .8, d * .8), painter: _StarPatternPainter(gold))),
+                  Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text('$count',
+                        style: TextStyle(fontSize: d * .3, height: 1.1, fontWeight: FontWeight.bold, color: Colors.white)),
+                    SizedBox(width: d * .34, child: const OrnamentDivider()),
+                    const SizedBox(height: 4),
+                    Text('من $target', style: TextStyle(fontSize: d * .075, color: gold)),
+                  ]),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
-    final a = accent(context);
-    final fill = Theme.of(context).appBarTheme.backgroundColor ?? a;
+    final pc = pri(context), tc = tri(context);
+    final gold = Color.lerp(sec(context), Colors.white, .2)!;
     final prog = count >= target ? 1.0 : count / target;
+    final pct = (prog * 100).round();
+    final hint = Theme.of(context).hintColor;
     return Scaffold(
       appBar: AppBar(
         title: const Text('سبحة الصلاة على الحبيب ﷺ', style: TextStyle(fontSize: 18)),
         actions: [IconButton(icon: const Icon(Icons.tune), tooltip: 'الإعدادات', onPressed: openSettings)],
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
-          child: Column(children: [
-            // الصيغة: بطاقة كبيرة، والخط يكبر ما أمكن حتى تظهر الصيغة كاملة بلا سحب
-            Expanded(
-              flex: 5,
-              child: Card(
-                margin: EdgeInsets.zero,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: LayoutBuilder(builder: (ctx, bc) {
-                    final scaler = MediaQuery.textScalerOf(ctx);
-                    final text = sebhaFormulas[sel];
-                    final dts = DefaultTextStyle.of(ctx).style;
-                    double heightAt(double f) {
-                      final tp = TextPainter(
-                        text: TextSpan(text: text, style: dts.merge(TextStyle(fontSize: f, height: 1.7, fontWeight: FontWeight.bold))),
-                        textDirection: TextDirection.rtl,
-                        textAlign: TextAlign.center,
-                        textScaler: scaler,
-                      )..layout(maxWidth: bc.maxWidth);
-                      return tp.height;
-                    }
-
-                    var fs = 34.0;
-                    while (fs > 14 && heightAt(fs) > bc.maxHeight) {
-                      fs -= 1;
-                    }
-                    return Center(
-                      child: SingleChildScrollView(
-                        child: Text(text,
-                            textAlign: TextAlign.center,
-                            textDirection: TextDirection.rtl,
-                            style: TextStyle(fontSize: fs, height: 1.7, fontWeight: FontWeight.bold, color: a)),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            // العدّاد: مربع كبير يملأ المساحة المتبقية
-            Expanded(
-              flex: 6,
-              child: LayoutBuilder(builder: (ctx, bc) {
-                final d = dmath.min(bc.maxWidth, bc.maxHeight);
-                return Center(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: tap,
-                    child: SizedBox(
-                      width: d,
-                      height: d,
-                      child: Stack(alignment: Alignment.center, children: [
-                        SquareProgress(size: d, value: prog, color: a),
-                        Container(
-                          width: d * .86,
-                          height: d * .86,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(d * .15),
-                            color: fill,
-                            boxShadow: [BoxShadow(color: a.withOpacity(.4), blurRadius: 20, spreadRadius: 2)],
-                          ),
-                          child: Column(mainAxisSize: MainAxisSize.min, children: [
-                            Text('$count', style: TextStyle(fontSize: d * .34, height: 1.1, fontWeight: FontWeight.bold, color: Colors.white)),
-                            Text('من $target', style: TextStyle(fontSize: d * .07, color: Colors.white70)),
-                          ]),
-                        ),
-                      ]),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ]),
+      body: PageBackdrop(
+        child: SafeArea(
+          child: LayoutBuilder(builder: (ctx, bc) {
+            final d = dmath.min(bc.maxWidth * .56, bc.maxHeight * .34).clamp(120.0, 230.0).toDouble();
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+              child: Column(children: [
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  _pill(context, Icons.emoji_events, 'الأهداف: $goals', gold, pc),
+                  const SizedBox(width: 10),
+                  _pill(context, Icons.flag, 'الهدف: $target', gold, tc),
+                ]),
+                const SizedBox(height: 10),
+                Expanded(child: _formulaBox(context, pc, tc, gold)),
+                const SizedBox(height: 14),
+                _counter(d, prog, pc, tc, gold),
+                const SizedBox(height: 8),
+                Text('$pct٪ من الهدف  •  اضغط على المربع للعدّ',
+                    style: TextStyle(fontSize: 12.5, color: hint)),
+              ]),
+            );
+          }),
         ),
       ),
     );
