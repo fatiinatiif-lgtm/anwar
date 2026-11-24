@@ -33,7 +33,9 @@ jobs:
           done = False
           for f in glob.glob('android/app/build.gradle*'):
               s = open(f, encoding='utf-8').read()
-              n = re.sub(r'compileSdk(Version)?\s*=?\s*[^\n]+', 'compileSdk = 37', s)
+              n, c = re.subn(r'compileSdk(Version)?\s*=?\s*[^\n]+', 'compileSdk = 37', s)
+              if c == 0:
+                  n = re.sub(r'android\s*\{', 'android {\n    compileSdk = 37', s, count=1)
               open(f, 'w', encoding='utf-8').write(n)
               print('=====', f)
               print(n)
