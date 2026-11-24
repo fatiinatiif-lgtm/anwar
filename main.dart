@@ -2365,25 +2365,31 @@ class _PrayerHubTabState extends State<PrayerHubTab> {
   int sub = 0;
 
   Widget _pill(BuildContext context, int k, String label, IconData icon) {
-    final ac = accent(context);
     final sel = sub == k;
+    final ac = accent(context);
     final onSel = isDark(context) ? Colors.black87 : Colors.white;
     return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(22),
-        onTap: () => setState(() => sub = k),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() => sub = k);
+        },
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(vertical: 11),
           decoration: BoxDecoration(
-            color: sel ? ac : ac.withOpacity(.12),
-            borderRadius: BorderRadius.circular(22),
+            gradient: sel
+                ? LinearGradient(colors: isDark(context) ? [sec(context), Color.lerp(sec(context), tri(context), .5)!] : _heroColors(context))
+                : null,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: sel ? [BoxShadow(color: ac.withOpacity(.35), blurRadius: 10, offset: const Offset(0, 4))] : null,
           ),
           child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             Icon(icon, size: 20, color: sel ? onSel : ac),
             const SizedBox(width: 6),
-            Text(label,
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: sel ? onSel : ac)),
+            Text(label, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: sel ? onSel : ac)),
           ]),
         ),
       ),
@@ -2392,13 +2398,20 @@ class _PrayerHubTabState extends State<PrayerHubTab> {
 
   @override
   Widget build(BuildContext context) {
+    final ac = accent(context);
     return Column(children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      Container(
+        margin: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: ac.withOpacity(.10),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: ac.withOpacity(.22)),
+        ),
         child: Row(children: [
           _pill(context, 0, 'منهج الصلاة', Icons.event_available),
-          const SizedBox(width: 10),
-          _pill(context, 1, 'اختبارات الحفظ', Icons.quiz),
+          const SizedBox(width: 4),
+          _pill(context, 1, 'اختبارات الحفظ', Icons.workspace_premium),
         ]),
       ),
       Expanded(
@@ -2406,6 +2419,129 @@ class _PrayerHubTabState extends State<PrayerHubTab> {
       ),
     ]);
   }
+}
+
+// ---------- اختبارات الحفظ: عناصر التصميم المشتركة ----------
+const _gold = Color(0xFFFFC145);
+const _okGreen = Color(0xFF2E9E5B);
+const _badRed = Color(0xFFD64545);
+
+List<Color> _heroColors(BuildContext c) {
+  final p = pri(c), t = tri(c);
+  return isDark(c) ? [Color.lerp(p, Colors.black, .2)!, Color.lerp(t, Colors.black, .45)!] : [p, Color.lerp(p, t, .6)!];
+}
+
+// ظهور تدريجي بحركة بسيطة (بيتأخر حسب ترتيب العنصر)
+class _QIn extends StatelessWidget {
+  final int index;
+  final Widget child;
+  const _QIn({required this.index, required this.child});
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: 1),
+        duration: Duration(milliseconds: 380 + index * 90),
+        curve: Curves.easeOutCubic,
+        builder: (_, v, ch) => Opacity(
+          opacity: v.clamp(0.0, 1.0).toDouble(),
+          child: Transform.translate(offset: Offset(0, 22 * (1 - v)), child: ch),
+        ),
+        child: child,
+      );
+}
+
+class _QChip extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _QChip(this.icon, this.text);
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(.16),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withOpacity(.25)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 16, color: _gold),
+          const SizedBox(width: 6),
+          Text(text, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+        ]),
+      );
+}
+
+// بطاقة رأس مزخرفة بتدرّج وزخارف الأركان ونقش النجوم
+class _QuizHero extends StatelessWidget {
+  final IconData icon;
+  final String title, subtitle;
+  final List<Widget> chips;
+  const _QuizHero({required this.icon, required this.title, required this.subtitle, this.chips = const []});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = sec(context);
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: _heroColors(context)),
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [BoxShadow(color: pri(context).withOpacity(.35), blurRadius: 18, offset: const Offset(0, 8))],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26),
+        child: CustomPaint(
+          foregroundPainter: _CornerPainter(s.withOpacity(.9)),
+          child: Stack(children: [
+            Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: _StarPatternPainter(Colors.white)))),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+              child: Column(children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(.16),
+                    border: Border.all(color: s, width: 2),
+                  ),
+                  child: Icon(icon, size: 38, color: Colors.white),
+                ),
+                const SizedBox(height: 14),
+                Text(title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white, height: 1.5)),
+                const SizedBox(height: 4),
+                Text(subtitle,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(.88), height: 1.8)),
+                if (chips.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: chips),
+                ],
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+// عنوان قسم مع فاصل زخرفي
+class _QSectionLabel extends StatelessWidget {
+  final String text;
+  const _QSectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
+        child: Column(children: [
+          Text(text, style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold, color: accent(context))),
+          const SizedBox(height: 8),
+          const OrnamentDivider(),
+        ]),
+      );
 }
 
 // ---------- اختبارات الحفظ ----------
@@ -2421,6 +2557,17 @@ const _quizTopics = [
   QuizOption('madaeh', 'كتب المدائح النبوية', Icons.music_note),
   QuizOption('sera', 'كتب السيرة النبوية', Icons.auto_stories),
 ];
+
+String _quizTopicSub(String id) {
+  switch (id) {
+    case 'salat':
+      return 'اختبر حفظك لصيغ الصلاة على النبي ﷺ';
+    case 'madaeh':
+      return 'قصائد ومدائح في حب سيد الخلق ﷺ';
+    default:
+      return 'السيرة والغزوات والشمائل المحمدية';
+  }
+}
 
 // صيغ الصلاة: الثلاثة المطلوبين
 const _quizSalatOptions = [
@@ -2468,17 +2615,36 @@ class MemorizationTestsTab extends StatelessWidget {
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
-            child: Text('اختبار في حفظ:',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: accent(context))),
-          ),
-          for (var k = 0; k < _quizTopics.length; k++)
-            _QuizCard(option: _quizTopics[k], color: mixIcon(context, k), onTap: () => _pick(context, _quizTopics[k])),
-        ],
+      child: PageBackdrop(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 28),
+          children: [
+            _QIn(
+              index: 0,
+              child: const _QuizHero(
+                icon: Icons.workspace_premium,
+                title: 'ميدان الحفظ',
+                subtitle: 'اختبر حفظك، وتابع تقدّمك، واجمع النجوم\nوالله يبارك لك في حفظك',
+                chips: [
+                  _QChip(Icons.checklist_rtl, 'اختيار من متعدد'),
+                  _QChip(Icons.star_rounded, 'نجوم وتهنئة'),
+                  _QChip(Icons.fact_check_outlined, 'مراجعة الأخطاء'),
+                ],
+              ),
+            ),
+            const _QSectionLabel('اختبار في حفظ'),
+            for (var k = 0; k < _quizTopics.length; k++)
+              _QIn(
+                index: k + 1,
+                child: _QuizCard(
+                  option: _quizTopics[k],
+                  subtitle: _quizTopicSub(_quizTopics[k].id),
+                  color: mixIcon(context, k),
+                  onTap: () => _pick(context, _quizTopics[k]),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -2488,34 +2654,66 @@ class _QuizCard extends StatelessWidget {
   final QuizOption option;
   final Color color;
   final VoidCallback onTap;
-  const _QuizCard({required this.option, required this.color, required this.onTap});
+  final String? subtitle;
+  const _QuizCard({required this.option, required this.color, required this.onTap, this.subtitle});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: color.withOpacity(.35)),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-          child: Row(children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(color: color.withOpacity(.14), borderRadius: BorderRadius.circular(14)),
-              child: Icon(option.icon, color: color),
+    final dark = isDark(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: color.withOpacity(.38), width: 1.2),
+          boxShadow: dark ? null : [BoxShadow(color: color.withOpacity(.20), blurRadius: 14, offset: const Offset(0, 6))],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(22),
+            onTap: () {
+              HapticFeedback.selectionClick();
+              onTap();
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+              child: Row(children: [
+                Container(
+                  width: 54,
+                  height: 54,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topRight,
+                      end: Alignment.bottomLeft,
+                      colors: [color, Color.lerp(color, Colors.black, .28)!],
+                    ),
+                    borderRadius: BorderRadius.circular(17),
+                    boxShadow: [BoxShadow(color: color.withOpacity(.4), blurRadius: 8, offset: const Offset(0, 3))],
+                  ),
+                  child: Icon(option.icon, color: Colors.white, size: 26),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(option.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, height: 1.55)),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(subtitle!, style: TextStyle(fontSize: 13, height: 1.6, color: Theme.of(context).hintColor)),
+                    ],
+                  ]),
+                ),
+                const SizedBox(width: 6),
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: color.withOpacity(.14)),
+                  child: Icon(Icons.chevron_left_rounded, color: color),
+                ),
+              ]),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(option.title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, height: 1.5)),
-            ),
-            Icon(Icons.chevron_left, color: color),
-          ]),
+          ),
         ),
       ),
     );
@@ -2535,18 +2733,28 @@ class QuizChoiceScreen extends StatelessWidget {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(title: Text(title, style: const TextStyle(fontSize: 17))),
-        body: SafeArea(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
-                child: Text(question,
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: accent(context))),
-              ),
-              for (var k = 0; k < options.length; k++)
-                _QuizCard(option: options[k], color: mixIcon(context, k), onTap: () => onPick(context, options[k])),
-            ],
+        body: PageBackdrop(
+          child: SafeArea(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 28),
+              children: [
+                _QIn(
+                  index: 0,
+                  child: _QuizHero(
+                    icon: Icons.menu_book_rounded,
+                    title: title,
+                    subtitle: question,
+                    chips: [_QChip(Icons.format_list_numbered_rtl, '${options.length} اختيارات')],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                for (var k = 0; k < options.length; k++)
+                  _QIn(
+                    index: k + 1,
+                    child: _QuizCard(option: options[k], color: mixIcon(context, k), onTap: () => onPick(context, options[k])),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -2554,7 +2762,7 @@ class QuizChoiceScreen extends StatelessWidget {
   }
 }
 
-// مؤقتًا: شاشة بداية الاختبار (لحد ما نحدد شكل الأسئلة)
+// شاشة بداية الاختبار: بتوجّه لكل اختبار حسب رقمه
 class QuizStartScreen extends StatelessWidget {
   final String topic, name, id;
   const QuizStartScreen({super.key, required this.topic, required this.name, required this.id});
@@ -2563,6 +2771,9 @@ class QuizStartScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     if (id == 'sera') {
       return PoemQuizScreen(title: name, questions: seraQuiz, bestKey: 'quiz_best_sera');
+    }
+    if (id == 'elhama') {
+      return PoemQuizScreen(title: name, questions: hamzaQuiz, bestKey: 'quiz_best_elhama');
     }
     if (id == 'borda') {
       return QuizChoiceScreen(
@@ -2607,25 +2818,128 @@ class QuizStartScreen extends StatelessWidget {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(title: const Text('اختبار الحفظ', style: TextStyle(fontSize: 17))),
-        body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.quiz, size: 64, color: ac),
-                const SizedBox(height: 14),
-                Text(name, textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: ac, height: 1.6)),
-                const SizedBox(height: 8),
-                Text(topic, style: TextStyle(color: Theme.of(context).hintColor)),
-                const SizedBox(height: 18),
-                Text('الاختبار قريبًا إن شاء الله', style: TextStyle(color: Theme.of(context).hintColor)),
-              ]),
+        body: PageBackdrop(
+          child: SafeArea(
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Container(
+                    width: 110,
+                    height: 110,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: ac.withOpacity(.12),
+                      border: Border.all(color: sec(context), width: 2),
+                    ),
+                    child: Icon(Icons.hourglass_top_rounded, size: 52, color: ac),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(name, textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: ac, height: 1.6)),
+                  const SizedBox(height: 6),
+                  Text(topic, style: TextStyle(color: Theme.of(context).hintColor)),
+                  const SizedBox(height: 14),
+                  const SizedBox(width: 160, child: OrnamentDivider()),
+                  const SizedBox(height: 14),
+                  Text('الاختبار قريبًا إن شاء الله', style: TextStyle(fontSize: 16, color: Theme.of(context).hintColor)),
+                ]),
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
+
+// ---------- رسم دائرة النتيجة + قصاصات الاحتفال ----------
+class _RingPainter extends CustomPainter {
+  final double value;
+  final Color color, track;
+  const _RingPainter(this.value, this.color, this.track);
+
+  @override
+  void paint(Canvas c, Size s) {
+    const w = 13.0;
+    final rect = Rect.fromLTWH(w / 2, w / 2, s.width - w, s.height - w);
+    final base = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w
+      ..color = track;
+    final prog = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w
+      ..strokeCap = StrokeCap.round
+      ..color = color;
+    c.drawArc(rect, 0, dmath.pi * 2, false, base);
+    if (value > 0) c.drawArc(rect, -dmath.pi / 2, dmath.pi * 2 * value, false, prog);
+  }
+
+  @override
+  bool shouldRepaint(covariant _RingPainter old) => old.value != value || old.color != color || old.track != track;
+}
+
+class _Confetti extends StatefulWidget {
+  const _Confetti();
+  @override
+  State<_Confetti> createState() => _ConfettiState();
+}
+
+class _ConfettiState extends State<_Confetti> with SingleTickerProviderStateMixin {
+  late final AnimationController c;
+  late final List<List<double>> p;
+
+  @override
+  void initState() {
+    super.initState();
+    final r = dmath.Random();
+    // x، تأخير، سرعة، حجم، دوران، انحراف، رقم اللون
+    p = List.generate(
+      80,
+      (_) => [r.nextDouble(), r.nextDouble() * .45, .65 + r.nextDouble() * .35, 6 + r.nextDouble() * 8, r.nextDouble() * 6.28, r.nextDouble() * 2 - 1, r.nextInt(6).toDouble()],
+    );
+    c = AnimationController(vsync: this, duration: const Duration(milliseconds: 4200))..forward();
+  }
+
+  @override
+  void dispose() {
+    c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+        child: RepaintBoundary(child: CustomPaint(size: Size.infinite, painter: _ConfettiPainter(c, p))),
+      );
+}
+
+class _ConfettiPainter extends CustomPainter {
+  final Animation<double> t;
+  final List<List<double>> p;
+  _ConfettiPainter(this.t, this.p) : super(repaint: t);
+
+  static const _cols = [_gold, Color(0xFFE91E63), Color(0xFF26A69A), Color(0xFF42A5F5), Color(0xFFAB47BC), Color(0xFF66BB6A)];
+
+  @override
+  void paint(Canvas c, Size s) {
+    final paint = Paint();
+    for (final q in p) {
+      final lt = ((t.value - q[1]) / (1 - q[1])).clamp(0.0, 1.0).toDouble();
+      if (lt <= 0) continue;
+      final y = -24 + (s.height + 48) * lt * q[2];
+      final x = q[0] * s.width + dmath.sin(lt * 9 + q[4]) * 26 * q[5];
+      final op = lt > .82 ? (1 - lt) / .18 : 1.0;
+      paint.color = _cols[q[6].toInt()].withOpacity(op.clamp(0.0, 1.0).toDouble());
+      c.save();
+      c.translate(x, y);
+      c.rotate(q[4] + lt * 11);
+      c.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset.zero, width: q[3], height: q[3] * .5), const Radius.circular(2)), paint);
+      c.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConfettiPainter old) => false;
 }
 
 // ---------- اختبار المنظومة اللطيفة (100 سؤال اختياري) ----------
@@ -2635,6 +2949,109 @@ class PoemQ {
   final int answer;
   const PoemQ(this.prompt, this.stem, this.options, this.answer);
 }
+
+const hamzaQuiz = <PoemQ>[
+  PoemQ('أكمل الشطر الثاني من البيت:', 'ذِكْرُ الحَبيبِ ومَدحُهُ إحياءُ', ['يومَ القيامَةِ عِزَةٌ عَلياءُ', 'ربِّي لِأُمَّتِنا فهُم ضُعَفاءُ', 'لِقُلوبِنا مِن مَوتِها ودَواءُ', 'مَيمونَةٍ والكَونُ فيهِ غِناءُ'], 2),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'وبِدايَتِي ياربِّ باسمِكَ أرتَجِي\nمَدَداً لهُ يَتَعَطَشُ الشُرَفاءُ', ['وهُمُ الخِيارُ مِن الخِيارِ ومَن بِهِم', 'فَأعِنِّيَ اللهُمَّ إنَّكَ قَادِرٌ', 'ياربِّ صَلِّ عَلى الحَبيبِ وآلِهِ', 'وَبِحَقِهِم عَجِّلْ بِفَرَجٍ مِنكَ يَا'], 1),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'مِنكَ الهُدىٰ والجُودُ والإسدَاءُ', ['وَبِها أمِيرُ المُؤمِنينَ جِوَارَهُ', 'فَأعِنِّيَ اللهُمَّ إنَّكَ قَادِرٌ', 'أمُّ الكِرَامِ الطَاهِرينَ وبنتُ مَن', 'يَا أكْرَمَ الرُسْلِ اسمَحوا بِزيَارةٍ'], 1),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'ثمَّ الصلاةُ على النبيِّ وَسِيلَتِي', ['فَهُوَ الذي يَحلو لهُ الإنشَاءُ', 'والاستِقَامَةُ نُورُها وَضَّاءُ', 'يا سَعْدَهُم بالمُصطفىٰ الفُقراءُ', 'مِنكُم وَفِيكُم أيُّها الكُرَمَاءُ'], 0),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'قُلْ ما تَشَاءُ سَتَعجَزُ الكَلمَاتُ عَن', ['ثُمَّ اعتَرِف بالعَجزِ فَهْوَ وفَاءُ', 'مِنكُم وَفِيكُم أيُّها الكُرَمَاءُ', 'فَهُوَ الكَريمُ وآلُهُ الكَرَمَاءُ', 'وَصْفٍ لهُ والعَجزُ فيهِ وَفاءُ'], 3),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'قُلْ ما تَشَاءُ سَتَعجَزُ الكَلمَاتُ عَن\nوَصْفٍ لهُ والعَجزُ فيهِ وَفاءُ', ['مِن بَعدِ قَولِ اللهِ فِي قُرءانِهِ', 'والحَمدُ ثُمَّ الشُكْرُ للرَحمٰنِ مَن', 'قِفْ والتَزِمْ يَا مَادِحاً لِمُحمدٍ', 'أَوَمَا رَضِيتُم أنْ يَعودَ الناسُ قَد'], 0),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'مَاذا يَقولُ بِحَقِهِ الشُعَراءُ', ['فاللهُ فيكَ استَودَعَ العِلمَ الذي', 'يَا مَن سَرىٰ ليلاً لقُدسِ مَعيةٍ', 'وَأتَىٰ إليهِ طَالباً إذناً بِمَا', 'مِن بَعدِ قَولِ اللهِ فِي قُرءانِهِ'], 3),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'إنْ قِيلَ نُورٌ فهْوَ نورُ اللهِ قَدْ', ['وَبِخيرِهِم قَد عَمَّنا الإعطَاءُ', 'حَارَتْ بِكُنْهِ مَقامِهِ العُلمَاءُ', 'ربِّي لِأُمَّتِنا فهُم ضُعَفاءُ', 'فَهُوَ الكَريمُ وآلُهُ الكَرَمَاءُ'], 1),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'إنْ قِيلَ نُورٌ فهْوَ نورُ اللهِ قَدْ\nحَارَتْ بِكُنْهِ مَقامِهِ العُلمَاءُ', ['فَهُوَ الذي قَالَ النبيُّ بأنَّهُ', 'ما حِيلتي إلا مَديحُ مُحمدٍ', 'وعليه مِن نورِ الجَلالةِ آيةٌ', 'أوْ قِيلَ إنَّ مُحمَّداً قَمرٌ فَقَد'], 3),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'أوْ قِيلَ إنَّ مُحمَّداً قَمرٌ فَقَد\nفاقَ البُدورَ ونورُهُ الوَضَّاءُ', ['حَارَتْ عُقولُ العالَمِينَ وَلَمْ تُحِطْ', 'فِيها مَقامَاتُ الصَحَابَةِ مَن لَهُم', 'وهُمُ الخِيارُ مِن الخِيارِ ومَن بِهِم', 'يَشكُونَ مَا قَد نَابَهُم حُزناً علىٰ'], 0),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'فاقَ البُدورَ ونورُهُ الوَضَّاءُ', ['ياربِّ صَلِّ عَلى الحَبيبِ وآلِهِ', 'وَمَدينَةٌ لكَ أنتَ بِالأفضَالِ يَا', 'فَدَعَاهُمُ المُختَارُ أكْرَمَهُم بِمَا', 'أوْ قِيلَ إنَّ مُحمَّداً قَمرٌ فَقَد'], 3),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'حَارَتْ عُقولُ العالَمِينَ وَلَمْ تُحِطْ\nبِمَقامِ طهِ مَن لهُ العَلياءُ', ['ومَن اصطَفَاهُ اللهُ مِن بَينِ الورىٰ', 'فَأعِنِّيَ اللهُمَّ إنَّكَ قَادِرٌ', 'أوْ هَديِهِ أوْ حُبِّهِ أوْ دِينِهِ', 'وَعَبيرُهَا مِن عِطْرِ طَهَ المُصطَفىٰ'], 0),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'بِمَقامِ طهِ مَن لهُ العَلياءُ', ['أوْ قِيلَ إنَّ مُحمَّداً قَمرٌ فَقَد', 'حَارَتْ عُقولُ العالَمِينَ وَلَمْ تُحِطْ', 'وَبِها أمِيرُ المُؤمِنينَ جِوَارَهُ', 'يا سَيِّدَ الرُسْلِ الكِرامِ فَإنَّنِي'], 1),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'ومَن اصطَفَاهُ اللهُ مِن بَينِ الورىٰ', ['فِيها لِكلِّ المُذنِبينَ دَواءُ', 'ثُمَّ اعتَرِف بالعَجزِ فَهْوَ وفَاءُ', 'مِن سَادَةِ الدُنيا هُمُ الكُرَمَاءُ', 'عُمَرٌ إليهِ يَرحَلُ الحُكَمَاءُ'], 2),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'ومَن اصطَفَاهُ اللهُ مِن بَينِ الورىٰ\nمِن سَادَةِ الدُنيا هُمُ الكُرَمَاءُ', ['وَبِحَقِهِم عَجِّلْ بِفَرَجٍ مِنكَ يَا', 'فَدَعَاهُمُ المُختَارُ أكْرَمَهُم بِمَا', 'لَكَ في الأمَانةِ مَنزِلٌ لا يُرتَقىٰ', 'وهُمُ الخِيارُ مِن الخِيارِ ومَن بِهِم'], 3),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'وهُمُ الخِيارُ مِن الخِيارِ ومَن بِهِم\nوَبِخيرِهِم قَد عَمَّنا الإعطَاءُ', ['قِفْ والتَزِمْ يَا مَادِحاً لِمُحمدٍ', 'إنَّا جَمِيعاً مِثْلُهُ فِي حَاجةٍ', 'يَا أكْرَمَ الرُسْلِ اسمَحوا بِزيَارةٍ', 'أوْ هَديِهِ أوْ حُبِّهِ أوْ دِينِهِ'], 0),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'قِفْ والتَزِمْ يَا مَادِحاً لِمُحمدٍ\nثُمَّ اعتَرِف بالعَجزِ فَهْوَ وفَاءُ', ['لَمْ تَغلِقِ الأبوابَ دُونَ مُقَصِّرٍ', 'فالعَجزُ أبلَغُ مَا وُصِفْتَ بِهِ فَقُل', 'يا سَعدَ ما نالَ البُراقُ بِلَيلةٍ', 'فَقَد اصطفَاكَ لِرؤيَةِ الوجهِ الذي'], 1),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'ثُمَّ اعتَرِف بالعَجزِ فَهْوَ وفَاءُ', ['يا سَعدَ ما نالَ البُراقُ بِلَيلةٍ', 'قِفْ والتَزِمْ يَا مَادِحاً لِمُحمدٍ', 'ما حِيلتي إلا مَديحُ مُحمدٍ', 'رَجَعُوا بِخيرِ هَديَةٍ قَد أُهدِيَتْ'], 1),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'فالعَجزُ أبلَغُ مَا وُصِفْتَ بِهِ فَقُل', ['بِحَدِيثِهِ تَتَعَطَرُ الأرجَاءُ', 'يَا سَيدي ما يَفعَلُ الضُعَفَاءُ؟', 'وَمُنىٰ فُؤادِيْ القُبَّةُ الخَضرَاءُ', 'فِي طَاعةِ اللهِ عليهِ بَهَاءُ'], 1),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'فالعَجزُ أبلَغُ مَا وُصِفْتَ بِهِ فَقُل\nيَا سَيدي ما يَفعَلُ الضُعَفَاءُ؟', ['صَارَتْ مُطَيَّبَةً وطَيِّبَةَ الثَرىٰ', 'يَاربِّ عَجِّلْ باللقَاءِ ونَظرَةٍ', 'حَقِقْ لَنا الآمَالَ واقبَلْ راضِياً', 'إنِّي ضَعيفٌ لَسْتُ أُوفِيْ حَقَكُم'], 3),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'إنِّي ضَعيفٌ لَسْتُ أُوفِيْ حَقَكُم\nلكنَّ حُبِّي للنبيِّ رَجَاءُ', ['فِيها أبو بَكرٍ بِقُربِ مُحمَّدٍ', 'وتَزولُ عنَّا كلُّ أغيارِ الهَوىٰ', 'يا مَن لهُ الخُلُقُ العَظيمُ ومَن لهُ', 'بُشرىٰ لمَن نُسِبوا إليكَ فإنَّهُم'], 2),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'يومَ القيامَةِ عِزَةٌ عَلياءُ', ['فَقَد اصطفَاكَ لِرؤيَةِ الوجهِ الذي', 'يا مَن لهُ الخُلُقُ العَظيمُ ومَن لهُ', 'هِيَ طَيبَةٌ طَابَتْ بِكُم وبِنُورِكُم', 'وَاستَقبَلتْهُ الأنبياءُ تَهَلُّلاً'], 1),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'بُشرىٰ لمَن نُسِبوا إليكَ فإنَّهُم', ['بِكَ أدرَكُوا مَا يَطلبُ الشُفَعاءُ', 'لكنَّ حُبِّي للنبيِّ رَجَاءُ', 'عَبداً فَقِيراً والوِصَالُ رَجاءُ', 'لِقُلوبِنا مِن مَوتِها ودَواءُ'], 0),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'يا خيرَ مولودٍ لِآدَمَ قَد سَمَا\nشَرَفاً بهِ وتَشَرَّفَتْ حَوَّاءُ', ['ثمَّ الصلاةُ على النبيِّ وَسِيلَتِي', 'وهُوَ الكَريمُ هُوَ الرَحِيمُ بِخَلقِهِ', 'أنتَ الرحيمُ ومَن سِواكَ فَتَابِعٌ', 'عَادَ الفَتىٰ مِن بعدِ ذَلكَ رَاغِباً'], 2),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'بِكَ أنتَ وَحدَكَ يَقتَدِي الرُحَمَاءُ', ['فاللهُ فيكَ استَودَعَ العِلمَ الذي', 'أَسْعِدْ وَأَكرِمْ كلَّ تَالٍ قارئٍ', 'أنتَ الرحيمُ ومَن سِواكَ فَتَابِعٌ', 'إنْ حَازَ بعضُ الخَلْقِ مالاً أو سِوىً'], 2),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'أنتَ الأمينُ وصَادِقٌ ومُصَدَّقٌ', ['يَهفُو لهَا ولِنُورِها العُلَمَاءُ', 'يومَ القيامَةِ عِزَةٌ عَلياءُ', 'بِكَ أدرَكُوا مَا يَطلبُ الشُفَعاءُ', 'شَهِدَتْ بذاكَ الأهلُ والأعدَاءُ'], 3),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'لَكَ في الأمَانةِ مَنزِلٌ لا يُرتَقىٰ\nحَاشَا لهُ يَتَطَلَّعُ الأُمَنَاءُ', ['وهُمُ الخِيارُ مِن الخِيارِ ومَن بِهِم', 'فاللهُ فيكَ استَودَعَ العِلمَ الذي', 'فِيها أبو بَكرٍ بِقُربِ مُحمَّدٍ', 'فَرِحُوا جَمِيعاً بِالحَبيبِ وَقَبَّلوا'], 1),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'حَاشَا لهُ يَتَطَلَّعُ الأُمَنَاءُ', ['فَقَد اصطفَاكَ لِرؤيَةِ الوجهِ الذي', 'فِيها مَقامَاتُ الصَحَابَةِ مَن لَهُم', 'لَكَ في الأمَانةِ مَنزِلٌ لا يُرتَقىٰ', 'رَجَعُوا بِخيرِ هَديَةٍ قَد أُهدِيَتْ'], 2),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'مَا نَالَهُ إلاكَ فَهْوَ جَلاءُ', ['هِي زوجَةُ الكرَّارِ بنتُ خَديجةٍ', 'أنتَ الأمينُ وصَادِقٌ ومُصَدَّقٌ', 'فاللهُ فيكَ استَودَعَ العِلمَ الذي', 'ثمَّ الصلاةُ على النبيِّ وَسِيلَتِي'], 2),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'فَقَد اصطفَاكَ لِرؤيَةِ الوجهِ الذي', ['والاستِقَامَةُ نُورُها وَضَّاءُ', 'لِلخَلقِ حَقاً إنَّهُم سُعَدَاءُ', 'لِجَلالهِ يَتَعبَّدُ السُعَدَاءُ', 'يَهفو الأحبَّةُ والوِدَادُ وفَاءُ'], 2),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'يَا مَن سَرىٰ ليلاً لقُدسِ مَعيةٍ\nوَتَنزَلتْ فِي حَقِها الإسرَاءُ', ['فَبِحَقِهِم هَبْنَا الجِوارَ بِطَيبَةٍ', 'هِي زوجَةُ الكرَّارِ بنتُ خَديجةٍ', 'سُبحَانَ مَن أسرىٰ بِأعظَمِ مُرسَلٍ', 'هُوَ نَاصِرُ الحَقِ ومِيزانُ القَضَا'], 2),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'وَلهُ مِن المَلَأِ العَليْ رُفَقَاءُ', ['صَلَّى إمَاماً والجَميعُ بهِ اقتَدَوا', 'والحَمدُ ثُمَّ الشُكْرُ للرَحمٰنِ مَن', 'لَمْ تَغلِقِ الأبوابَ دُونَ مُقَصِّرٍ', 'سُبحَانَ مَن أسرىٰ بِأعظَمِ مُرسَلٍ'], 3),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'يا سَعدَ ما نالَ البُراقُ بِلَيلةٍ', ['يَهفو الأحبَّةُ والوِدَادُ وفَاءُ', 'عَن بَيعةِ الهَادي لهُ قَد جَاءوا', 'مَيمونَةٍ والكَونُ فيهِ غِناءُ', 'عُمَرٌ إليهِ يَرحَلُ الحُكَمَاءُ'], 2),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'صَلَّى إمَاماً والجَميعُ بهِ اقتَدَوا\nوتَواتَرَتْ عَن ذَلكَ الأنباءُ', ['والرُسْلُ والأمْلاكُ لم يَتَخَلَّفوا', 'فَدَعَاهُمُ المُختَارُ أكْرَمَهُم بِمَا', 'ثمَّ الصلاةُ على النبيِّ وَسِيلَتِي', 'فِيها مَقامَاتُ الصَحَابَةِ مَن لَهُم'], 0),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'عَن بَيعةِ الهَادي لهُ قَد جَاءوا', ['بِيَدِّ النبيِّ بِها يُداوي قَلبَهُ', 'أوْ هَديِهِ أوْ حُبِّهِ أوْ دِينِهِ', 'والرُسْلُ والأمْلاكُ لم يَتَخَلَّفوا', 'وَمَدينَةٌ لكَ أنتَ بِالأفضَالِ يَا'], 2),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'وَاستَقبَلتْهُ الأنبياءُ تَهَلُّلاً', ['فَرَحاً بِمَن سَعِدَتْ بهِ الغَبرَاءُ', 'يَهفُو لهَا ولِنُورِها العُلَمَاءُ', 'بِالجُودِ فَضلاً إنَّكَ المِعطَاءُ', 'وتَواتَرَتْ عَن ذَلكَ الأنباءُ'], 0),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'وَاستَقبَلتْهُ الأنبياءُ تَهَلُّلاً\nفَرَحاً بِمَن سَعِدَتْ بهِ الغَبرَاءُ', ['يَارَبِّ فَانظُر للفَقِيرِ تَكرُّماً', 'وهُوَ الكَريمُ هُوَ الرَحِيمُ بِخَلقِهِ', 'ذِكْرُ الحَبيبِ ومَدحُهُ إحياءُ', 'يا سَيِّدَ الرُسْلِ الكِرامِ فَإنَّنِي'], 3),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'يا سَيِّدَ الرُسْلِ الكِرامِ فَإنَّنِي\nعَجَزَتْ أُقَيْلامِي فَهَلْ إعطَاءُ؟', ['فِيها الشِفاءُ وسِرُّ أسرَارِ الهُدى', 'وهُمُ الخِيارُ مِن الخِيارِ ومَن بِهِم', 'حتَى أبُثَّ لكَ القَصائِدَ بَهجَةً', 'بُشرىٰ لمَن نُسِبوا إليكَ فإنَّهُم'], 2),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'ويَفوزَ عِندَ مَدِيحِهَا الحُدَّاءُ', ['حتَى أبُثَّ لكَ القَصائِدَ بَهجَةً', 'أَسْعِدْ وَأَكرِمْ كلَّ تَالٍ قارئٍ', 'وَأتَاهُ مَن يَشكو الذُنوبَ وأنَّهُ', 'فَبِطَيبَةٍ قَلبِي يَطيبُ وتَنجَلي'], 0),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'فَـلأَنتَ أَكرَمُ مَن تَفَضَّلَ مِنَّةً', ['بِالجُودِ فَضلاً إنَّكَ المِعطَاءُ', 'وَبِخيرِهِم قَد عَمَّنا الإعطَاءُ', 'هِيَ طَيبَةٌ وَرِياضُهَا غَنَّاءُ', 'مِنهُ لنَا وتَعَمُّنا السَرَّاءُ'], 0),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'لَمْ تَغلِقِ الأبوابَ دُونَ مُقَصِّرٍ\nيَوماً وَلَمْ يَيأَسْ هُنا النُزَلاءُ', ['لَكَ في الأمَانةِ مَنزِلٌ لا يُرتَقىٰ', 'ثمَّ الصلاةُ على النبيِّ وَسِيلَتِي', 'فمُحمدٌ أسمى الخلائِقِ رَحمَةً', 'لَمْ تَحرِمِ الفُقَرَاءَ فَضْلَ مَوَدَةٍ'], 3),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'يا سَعْدَهُم بالمُصطفىٰ الفُقراءُ', ['فمُحمدٌ أسمى الخلائِقِ رَحمَةً', 'لَمْ تَحرِمِ الفُقَرَاءَ فَضْلَ مَوَدَةٍ', 'والحَمدُ ثُمَّ الشُكْرُ للرَحمٰنِ مَن', 'وَعَبيرُهَا مِن عِطْرِ طَهَ المُصطَفىٰ'], 1),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'إنْ حَازَ بعضُ الخَلْقِ مالاً أو سِوىً', ['لكنَّ حُبِّي للنبيِّ رَجَاءُ', 'مِنكَ الهُدىٰ والجُودُ والإسدَاءُ', 'فَالفَائِزونَ بأحمَدَ النُجَبَاءُ', 'مَدَداً لهُ يَتَعَطَشُ الشُرَفاءُ'], 2),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'رَجَعُوا بِخيرِ هَديَةٍ قَد أُهدِيَتْ\nلِلخَلقِ حَقاً إنَّهُم سُعَدَاءُ', ['لَمْ تَحرِمِ الفُقَرَاءَ فَضْلَ مَوَدَةٍ', 'وَاستَقبَلتْهُ الأنبياءُ تَهَلُّلاً', 'هَلْ تَذكُرونَ وَصِيَةً للمُصطَفىٰ', 'ثمَّ الصلاةُ على النبيِّ وَسِيلَتِي'], 2),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'أَوصَىٰ بِهَا الأنصَارَ لمَّا جَاءوا', ['سَعِدَ النبيُّ بِهِم وَسَامَحَهُم عَلى', 'إنْ حَازَ بعضُ الخَلْقِ مالاً أو سِوىً', 'ما حِيلتي إلا مَديحُ مُحمدٍ', 'هَلْ تَذكُرونَ وَصِيَةً للمُصطَفىٰ'], 3),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'يَشكُونَ مَا قَد نَابَهُم حُزناً علىٰ', ['وَبِنُورِكُم تَتَغيَّرُ الأسمَاءُ', 'كَفِّ النَّبيْ المُخَتارِ فَهْوَ شِفَاءُ', 'وانظُر لِقَلبي فالوِدَادُ رجَاءُ', 'فَقْدِ الغَنِيمَةِ غَيرُهُم قَد فَاءُوا'], 3),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'فَدَعَاهُمُ المُختَارُ أكْرَمَهُم بِمَا\nهوَ خيرُ غُنْمٍ نَالَهُ السُعَدَاءُ', ['أمُّ الكِرَامِ الطَاهِرينَ وبنتُ مَن', 'أَوَمَا رَضِيتُم أنْ يَعودَ الناسُ قَد', 'لَكَ في الأمَانةِ مَنزِلٌ لا يُرتَقىٰ', 'هِي زوجَةُ الكرَّارِ بنتُ خَديجةٍ'], 1),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'جَمَعُوا الشِيَاهَ فَأنتُمُ الفُضَلاءُ', ['لَكَ في الأمَانةِ مَنزِلٌ لا يُرتَقىٰ', 'أَوَمَا رَضِيتُم أنْ يَعودَ الناسُ قَد', 'وعليه مِن نورِ الجَلالةِ آيةٌ', 'ذِكْرُ الحَبيبِ ومَدحُهُ إحياءُ'], 1),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'قَدْ نِلتُمو حُبَّ النبيِّ وأنَّهُ', ['مِنكُم وَفِيكُم أيُّها الكُرَمَاءُ', 'ربِّي لِأُمَّتِنا فهُم ضُعَفاءُ', 'بِكَ أدرَكُوا مَا يَطلبُ الشُفَعاءُ', 'عَن شُكْرِهِ قَد يَعجَزُ البُلَغَاءُ'], 0),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'قَالَ لهُم إنِّي امْرُؤٌ مِنكُم فَهَلْ\nتَرضَونَ بِي عِوَضاً وذَاكُ عَطَاءُ', ['أوْ قِيلَ إنَّ مُحمَّداً قَمرٌ فَقَد', 'فَرِحُوا جَمِيعاً بِالحَبيبِ وَقَبَّلوا', 'إنِّي ضَعيفٌ لَسْتُ أُوفِيْ حَقَكُم', 'حَقِقْ لَنا الآمَالَ واقبَلْ راضِياً'], 1),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'فَرِحُوا جَمِيعاً بِالحَبيبِ وَقَبَّلوا', ['يَا سَيدي ما يَفعَلُ الضُعَفَاءُ؟', 'مَاذا يَقولُ بِحَقِهِ الشُعَراءُ', 'فَاروقُ أمَّتِهِ ـ عَليهِ بَهَاءُ', 'رَأسَ النَّبيِّ وَكُلُّهم بَكَّاءُ'], 3),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'رَأسَ النَّبيِّ وَكُلُّهم بَكَّاءُ', ['حَارَتْ عُقولُ العالَمِينَ وَلَمْ تُحِطْ', 'فَرِحُوا جَمِيعاً بِالحَبيبِ وَقَبَّلوا', 'سَعِدَ النبيُّ بِهِم وَسَامَحَهُم عَلى', 'هِيَ طَيبَةٌ طَابَتْ بِكُم وبِنُورِكُم'], 1),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'سَعِدَ النبيُّ بِهِم وَسَامَحَهُم عَلى', ['بِالعَدلِ يَحكُمُ والجَميعُ سَواءُ', 'خَيرَ الأنَامِ وأَهلُهَا شُهَدَاءُ', 'بِحَدِيثِهِ تَتَعَطَرُ الأرجَاءُ', 'مَا كانَ مِنهُم طَبعُهُ الإعفَاءُ'], 3),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'وَأتَاهُ مَن يَشكو الذُنوبَ وأنَّهُ\nشَابٌّ وشَهوَتُهُ لَدِيهِ دَاءُ', ['حَقِقْ لَنا الآمَالَ واقبَلْ راضِياً', 'فيهِ ابنَةُ المُختارِ فاطِمةُ التِي', 'وَأتَىٰ إليهِ طَالباً إذناً بِمَا', 'إنْ حَازَ بعضُ الخَلْقِ مالاً أو سِوىً'], 2),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'قَدْ حَرَّمَ اللهُ فَكَانَ دَواءُ', ['فِيها الشِفاءُ وسِرُّ أسرَارِ الهُدى', 'آمَالُنا نَلقَاهُ فِي رَوضِ الهُدىٰ', 'بُشرىٰ لمَن نُسِبوا إليكَ فإنَّهُم', 'وَأتَىٰ إليهِ طَالباً إذناً بِمَا'], 3),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'بِيَدِّ النبيِّ بِها يُداوي قَلبَهُ', ['بِالجُودِ فَضلاً إنَّكَ المِعطَاءُ', 'إنَّ العَظَائِمَ شَأنُها العُظَمَاءُ', 'مِن سَادَةِ الدُنيا هُمُ الكُرَمَاءُ', 'وإقامَةٍ يا أيُّها الكُرَمَاءُ'], 1),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'فالقَلبُ إنْ يَقسُو فَليسَ لهُ سِوى', ['والاستِقَامَةُ نُورُها وَضَّاءُ', 'بِكَ أدرَكُوا مَا يَطلبُ الشُفَعاءُ', 'كَفِّ النَّبيْ المُخَتارِ فَهْوَ شِفَاءُ', 'حَاشَا لهُ يَتَطَلَّعُ الأُمَنَاءُ'], 2),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'فالقَلبُ إنْ يَقسُو فَليسَ لهُ سِوى\nكَفِّ النَّبيْ المُخَتارِ فَهْوَ شِفَاءُ', ['فالعَجزُ أبلَغُ مَا وُصِفْتَ بِهِ فَقُل', 'وَعَبيرُهَا مِن عِطْرِ طَهَ المُصطَفىٰ', 'يا سَيِّدَ الرُسْلِ الكِرامِ فَإنَّنِي', 'أوْ هَديِهِ أوْ حُبِّهِ أوْ دِينِهِ'], 3),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'والاستِقَامَةُ نُورُها وَضَّاءُ', ['يا سَيِّدَ الرُسْلِ الكِرامِ فَإنَّنِي', 'فَبِطَيبَةٍ قَلبِي يَطيبُ وتَنجَلي', 'فاللهُ فيكَ استَودَعَ العِلمَ الذي', 'أوْ هَديِهِ أوْ حُبِّهِ أوْ دِينِهِ'], 3),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'عَادَ الفَتىٰ مِن بعدِ ذَلكَ رَاغِباً', ['فِي طَاعةِ اللهِ عليهِ بَهَاءُ', 'إنَّ العَظَائِمَ شَأنُها العُظَمَاءُ', 'تَرضَونَ بِي عِوَضاً وذَاكُ عَطَاءُ', 'وتَواتَرَتْ عَن ذَلكَ الأنباءُ'], 0),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'مِن نُورِ أحمَدَ ظَاهرٌ في وَجهِهِ\nوَفُؤادُهُ أضْحىٰ بِهِ الإهدَاءُ', ['وَبِحَقِهِم عَجِّلْ بِفَرَجٍ مِنكَ يَا', 'فَأعِنِّيَ اللهُمَّ إنَّكَ قَادِرٌ', 'وَأتَاهُ مَن يَشكو الذُنوبَ وأنَّهُ', 'إنَّا جَمِيعاً مِثْلُهُ فِي حَاجةٍ'], 3),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'إنَّا جَمِيعاً مِثْلُهُ فِي حَاجةٍ\nلِيَدِّ النبيِّ فَكَفُّهُ الحَسنَاءُ', ['سَعِدَ النبيُّ بِهِم وَسَامَحَهُم عَلى', 'مِن نُورِ أحمَدَ ظَاهرٌ في وَجهِهِ', 'فِيها الشِفاءُ وسِرُّ أسرَارِ الهُدى', 'فيهِ ابنَةُ المُختارِ فاطِمةُ التِي'], 2),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'لِيَدِّ النبيِّ فَكَفُّهُ الحَسنَاءُ', ['إنَّا جَمِيعاً مِثْلُهُ فِي حَاجةٍ', 'إنِّي ضَعيفٌ لَسْتُ أُوفِيْ حَقَكُم', 'حتَى أبُثَّ لكَ القَصائِدَ بَهجَةً', 'يا مَن لهُ الخُلُقُ العَظيمُ ومَن لهُ'], 0),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'فِيها الشِفاءُ وسِرُّ أسرَارِ الهُدى', ['مَاذا يَقولُ بِحَقِهِ الشُعَراءُ', 'لِلخَلقِ حَقاً إنَّهُم سُعَدَاءُ', 'فِيها لِكلِّ المُذنِبينَ دَواءُ', 'وَلهُ مِن المَلَأِ العَليْ رُفَقَاءُ'], 2),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'يَاربِّ عَجِّلْ باللقَاءِ ونَظرَةٍ\nمِنهُ لنَا وتَعَمُّنا السَرَّاءُ', ['فِيها الشِفاءُ وسِرُّ أسرَارِ الهُدى', 'لَكَ في الأمَانةِ مَنزِلٌ لا يُرتَقىٰ', 'هِي زوجَةُ الكرَّارِ بنتُ خَديجةٍ', 'وتَزولُ عنَّا كلُّ أغيارِ الهَوىٰ'], 3),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'وتَزولُ عنَّا كلُّ أغيارِ الهَوىٰ', ['فاقَ البُدورَ ونورُهُ الوَضَّاءُ', 'ثُمَّ اعتَرِف بالعَجزِ فَهْوَ وفَاءُ', 'ويَزولُ عنَّا الضِيقُ والضَرَّاءُ', 'أَوصَىٰ بِهَا الأنصَارَ لمَّا جَاءوا'], 2),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'ويَزولُ عنَّا الضِيقُ والضَرَّاءُ', ['أَسْعِدْ وَأَكرِمْ كلَّ تَالٍ قارئٍ', 'وتَزولُ عنَّا كلُّ أغيارِ الهَوىٰ', 'فَأعِنِّيَ اللهُمَّ إنَّكَ قَادِرٌ', 'رَجَعُوا بِخيرِ هَديَةٍ قَد أُهدِيَتْ'], 1),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'آمَالُنا نَلقَاهُ فِي رَوضِ الهُدىٰ', ['وَمُنىٰ فُؤادِيْ القُبَّةُ الخَضرَاءُ', 'عَجَزَتْ أُقَيْلامِي فَهَلْ إعطَاءُ؟', 'وعليه مِن حُسنِ الإلهِ رِداءُ', 'بِمَقامِ طهِ مَن لهُ العَلياءُ'], 0),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'يَا أكْرَمَ الرُسْلِ اسمَحوا بِزيَارةٍ\nوإقامَةٍ يا أيُّها الكُرَمَاءُ', ['وَبِحَقِهِم عَجِّلْ بِفَرَجٍ مِنكَ يَا', 'وبِدايَتِي ياربِّ باسمِكَ أرتَجِي', 'وَأتَاهُ مَن يَشكو الذُنوبَ وأنَّهُ', 'فَبِطَيبَةٍ قَلبِي يَطيبُ وتَنجَلي'], 3),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'وإقامَةٍ يا أيُّها الكُرَمَاءُ', ['فَـلأَنتَ أَكرَمُ مَن تَفَضَّلَ مِنَّةً', 'فيهِ ابنَةُ المُختارِ فاطِمةُ التِي', 'يَا أكْرَمَ الرُسْلِ اسمَحوا بِزيَارةٍ', 'مِن بَعدِ قَولِ اللهِ فِي قُرءانِهِ'], 2),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'عنهُ الهُمومُ وتَنمَحِي الظَلْمَاءُ', ['إنْ قِيلَ نُورٌ فهْوَ نورُ اللهِ قَدْ', 'سُبحَانَ مَن أسرىٰ بِأعظَمِ مُرسَلٍ', 'فَبِطَيبَةٍ قَلبِي يَطيبُ وتَنجَلي', 'صَلَّى إمَاماً والجَميعُ بهِ اقتَدَوا'], 2),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'هِيَ طَيبَةٌ طَابَتْ بِكُم وبِنُورِكُم', ['عَن بَيعةِ الهَادي لهُ قَد جَاءوا', 'بالمَدحِ فِيها يَسعَدُ الشُعَراءُ', 'هوَ خيرُ غُنْمٍ نَالَهُ السُعَدَاءُ', 'فَتَنوَّرَتْ فَلِذَا هِيَ الحَسنَاءُ'], 3),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'وَمَدينَةٌ لكَ أنتَ بِالأفضَالِ يَا\nخَيرَ الأنَامِ وأَهلُهَا شُهَدَاءُ', ['وَأتَىٰ إليهِ طَالباً إذناً بِمَا', 'مِن قَبلِ هِجرَتِكُم تَسمَّتْ يَثرِباً', 'رَجَعُوا بِخيرِ هَديَةٍ قَد أُهدِيَتْ', 'فَأعِنِّيَ اللهُمَّ إنَّكَ قَادِرٌ'], 1),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'وَبِنُورِكُم تَتَغيَّرُ الأسمَاءُ', ['فَأعِنِّيَ اللهُمَّ إنَّكَ قَادِرٌ', 'مِن قَبلِ هِجرَتِكُم تَسمَّتْ يَثرِباً', 'فَبِحَقِهِم هَبْنَا الجِوارَ بِطَيبَةٍ', 'فَهُوَ الذي قَالَ النبيُّ بأنَّهُ'], 1),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'صَارَتْ مُطَيَّبَةً وطَيِّبَةَ الثَرىٰ', ['يَوماً وَلَمْ يَيأَسْ هُنا النُزَلاءُ', 'فَتَنوَّرَتْ فَلِذَا هِيَ الحَسنَاءُ', 'لكنَّ حُبِّي للنبيِّ رَجَاءُ', 'هِيَ طَيبَةٌ وَرِياضُهَا غَنَّاءُ'], 3),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'وَعَبيرُهَا مِن عِطْرِ طَهَ المُصطَفىٰ\nيَهفُو لهَا ولِنُورِها العُلَمَاءُ', ['إنَّا جَمِيعاً مِثْلُهُ فِي حَاجةٍ', 'فَبِحَقِهِم هَبْنَا الجِوارَ بِطَيبَةٍ', 'فِيها مَقامَاتُ الصَحَابَةِ مَن لَهُم', 'هُوَ نَاصِرُ الحَقِ ومِيزانُ القَضَا'], 2),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'شَرَفٌ بِخِدمَةِ مَن لَهُ الإعلاءُ', ['حتَى أبُثَّ لكَ القَصائِدَ بَهجَةً', 'صَلَّى إمَاماً والجَميعُ بهِ اقتَدَوا', 'فِيها مَقامَاتُ الصَحَابَةِ مَن لَهُم', 'وَأتَاهُ مَن يَشكو الذُنوبَ وأنَّهُ'], 2),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'فِيها أبو بَكرٍ بِقُربِ مُحمَّدٍ', ['أَكْرِمْ بِصَاحِبِهِ هُمَا رُفَقَاءُ', 'شَرَفاً بهِ وتَشَرَّفَتْ حَوَّاءُ', 'مَدَداً لهُ يَتَعَطَشُ الشُرَفاءُ', 'حَارَتْ بِكُنْهِ مَقامِهِ العُلمَاءُ'], 0),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'وَبِها أمِيرُ المُؤمِنينَ جِوَارَهُ\nعُمَرٌ إليهِ يَرحَلُ الحُكَمَاءُ', ['فَهُوَ الذي قَالَ النبيُّ بأنَّهُ', 'فاللهُ فيكَ استَودَعَ العِلمَ الذي', 'أوْ قِيلَ إنَّ مُحمَّداً قَمرٌ فَقَد', 'يَا أكْرَمَ الرُسْلِ اسمَحوا بِزيَارةٍ'], 0),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'عُمَرٌ إليهِ يَرحَلُ الحُكَمَاءُ', ['فَهُوَ الذي قَالَ النبيُّ بأنَّهُ', 'وَبِها أمِيرُ المُؤمِنينَ جِوَارَهُ', 'فمُحمدٌ أسمى الخلائِقِ رَحمَةً', 'يَشكُونَ مَا قَد نَابَهُم حُزناً علىٰ'], 1),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'فَاروقُ أمَّتِهِ ـ عَليهِ بَهَاءُ', ['مِن بَعدِ قَولِ اللهِ فِي قُرءانِهِ', 'سُبحَانَ مَن أسرىٰ بِأعظَمِ مُرسَلٍ', 'فَهُوَ الذي قَالَ النبيُّ بأنَّهُ', 'وَمَدينَةٌ لكَ أنتَ بِالأفضَالِ يَا'], 2),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'هُوَ نَاصِرُ الحَقِ ومِيزانُ القَضَا', ['لِقُلوبِنا مِن مَوتِها ودَواءُ', 'فَالفَائِزونَ بأحمَدَ النُجَبَاءُ', 'بِالعَدلِ يَحكُمُ والجَميعُ سَواءُ', 'كَفِّ النَّبيْ المُخَتارِ فَهْوَ شِفَاءُ'], 2),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'إنَّ البَقيعَ بهِ الأحبَّةُ مَن لَهُم\nيَهفو الأحبَّةُ والوِدَادُ وفَاءُ', ['قَدْ نِلتُمو حُبَّ النبيِّ وأنَّهُ', 'لَمْ تَغلِقِ الأبوابَ دُونَ مُقَصِّرٍ', 'فيهِ ابنَةُ المُختارِ فاطِمةُ التِي', 'قُلْ ما تَشَاءُ سَتَعجَزُ الكَلمَاتُ عَن'], 2),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'فيهِ ابنَةُ المُختارِ فاطِمةُ التِي', ['بالمَدحِ فِيها يَسعَدُ الشُعَراءُ', 'فِي طَاعةِ اللهِ عليهِ بَهَاءُ', 'مَا كانَ مِنهُم طَبعُهُ الإعفَاءُ', 'لِقُلوبِنا مِن مَوتِها ودَواءُ'], 0),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'بالمَدحِ فِيها يَسعَدُ الشُعَراءُ', ['لَمْ تَغلِقِ الأبوابَ دُونَ مُقَصِّرٍ', 'صَلَّى إمَاماً والجَميعُ بهِ اقتَدَوا', 'فيهِ ابنَةُ المُختارِ فاطِمةُ التِي', 'وَبِها أمِيرُ المُؤمِنينَ جِوَارَهُ'], 2),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'أمُّ الكِرَامِ الطَاهِرينَ وبنتُ مَن', ['فِيها لِكلِّ المُذنِبينَ دَواءُ', 'بِحَدِيثِهِ تَتَعَطَرُ الأرجَاءُ', 'شَهِدَتْ بذاكَ الأهلُ والأعدَاءُ', 'ثُمَّ اعتَرِف بالعَجزِ فَهْوَ وفَاءُ'], 1),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'هِي زوجَةُ الكرَّارِ بنتُ خَديجةٍ\nوشَبيهَةُ الهَادِي هِيَ الزَّهرَاءُ', ['أَسْعِدْ وَأَكرِمْ كلَّ تَالٍ قارئٍ', 'فَبِحَقِهِم هَبْنَا الجِوارَ بِطَيبَةٍ', 'حتَى أبُثَّ لكَ القَصائِدَ بَهجَةً', 'أَوَمَا رَضِيتُم أنْ يَعودَ الناسُ قَد'], 1),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'هَذا رجَائِي فِي عَطَاكَ دُعَاءُ', ['فَرِحُوا جَمِيعاً بِالحَبيبِ وَقَبَّلوا', 'مِن نُورِ أحمَدَ ظَاهرٌ في وَجهِهِ', 'فمُحمدٌ أسمى الخلائِقِ رَحمَةً', 'فَبِحَقِهِم هَبْنَا الجِوارَ بِطَيبَةٍ'], 3),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'وَبِحَقِهِم عَجِّلْ بِفَرَجٍ مِنكَ يَا', ['شَهِدَتْ بذاكَ الأهلُ والأعدَاءُ', 'عَن شُكْرِهِ قَد يَعجَزُ البُلَغَاءُ', 'مَاذا يَقولُ بِحَقِهِ الشُعَراءُ', 'ربِّي لِأُمَّتِنا فهُم ضُعَفاءُ'], 3),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'حَقِقْ لَنا الآمَالَ واقبَلْ راضِياً\nعَبداً فَقِيراً والوِصَالُ رَجاءُ', ['وَبِها أمِيرُ المُؤمِنينَ جِوَارَهُ', 'ياربِّ صَلِّ عَلى الحَبيبِ وآلِهِ', 'وَبِحَقِهِم عَجِّلْ بِفَرَجٍ مِنكَ يَا', 'إنَّ البَقيعَ بهِ الأحبَّةُ مَن لَهُم'], 1),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'ياربِّ صَلِّ عَلى الحَبيبِ وآلِهِ', ['وَبِخيرِهِم قَد عَمَّنا الإعطَاءُ', 'فَهُوَ الكَريمُ وآلُهُ الكَرَمَاءُ', 'مَاذا يَقولُ بِحَقِهِ الشُعَراءُ', 'فَهُوَ الذي يَحلو لهُ الإنشَاءُ'], 1),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'فَهُوَ الكَريمُ وآلُهُ الكَرَمَاءُ', ['عَادَ الفَتىٰ مِن بعدِ ذَلكَ رَاغِباً', 'ياربِّ صَلِّ عَلى الحَبيبِ وآلِهِ', 'هِيَ طَيبَةٌ طَابَتْ بِكُم وبِنُورِكُم', 'إنِّي ضَعيفٌ لَسْتُ أُوفِيْ حَقَكُم'], 1),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'دَوماً وسَلِّمْ ثُمَّ بَارِك سَيدِي', ['يَوماً وَلَمْ يَيأَسْ هُنا النُزَلاءُ', 'كَرَماً يَليقُ بِمَن لَهُ الإعطَاءُ', 'بالمَدحِ فِيها يَسعَدُ الشُعَراءُ', 'وانظُر لِقَلبي فالوِدَادُ رجَاءُ'], 3),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'ما حِيلتي إلا مَديحُ مُحمدٍ\nفَبِمَدحِ طهَ يَسعَدُ الأُدَباءُ', ['حَارَتْ عُقولُ العالَمِينَ وَلَمْ تُحِطْ', 'فمُحمدٌ أسمى الخلائِقِ رَحمَةً', 'وَبِها أمِيرُ المُؤمِنينَ جِوَارَهُ', 'وَمَدينَةٌ لكَ أنتَ بِالأفضَالِ يَا'], 1),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'وحَنانُهُ طَبعٌ له وكِساءُ', ['لَمْ تَحرِمِ الفُقَرَاءَ فَضْلَ مَوَدَةٍ', 'فمُحمدٌ أسمى الخلائِقِ رَحمَةً', 'صَارَتْ مُطَيَّبَةً وطَيِّبَةَ الثَرىٰ', 'ومَن اصطَفَاهُ اللهُ مِن بَينِ الورىٰ'], 1),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'وعليه مِن نورِ الجَلالةِ آيةٌ', ['أَكْرِمْ بِصَاحِبِهِ هُمَا رُفَقَاءُ', 'خَيرَ الأنَامِ وأَهلُهَا شُهَدَاءُ', 'ويَفوزَ عِندَ مَدِيحِهَا الحُدَّاءُ', 'وعليه مِن حُسنِ الإلهِ رِداءُ'], 3),
+  PoemQ('ما الشطر الذي يبدأ به البيت التالي؟', 'والحَمدُ ثُمَّ الشُكْرُ للرَحمٰنِ مَن\nدوماً إليهِ يَهرَعُ الفُقَراءُ', ['وهُوَ الكَريمُ هُوَ الرَحِيمُ بِخَلقِهِ', 'وعليه مِن نورِ الجَلالةِ آيةٌ', 'يَشكُونَ مَا قَد نَابَهُم حُزناً علىٰ', 'مِن بَعدِ قَولِ اللهِ فِي قُرءانِهِ'], 0),
+  PoemQ('اختر الشطر الأول الذي يسبق هذا الشطر:', 'عَن شُكْرِهِ قَد يَعجَزُ البُلَغَاءُ', ['أَوَمَا رَضِيتُم أنْ يَعودَ الناسُ قَد', 'وهُوَ الكَريمُ هُوَ الرَحِيمُ بِخَلقِهِ', 'سَعِدَ النبيُّ بِهِم وَسَامَحَهُم عَلى', 'لَمْ تَحرِمِ الفُقَرَاءَ فَضْلَ مَوَدَةٍ'], 1),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'يَارَبِّ فَانظُر للفَقِيرِ تَكرُّماً', ['شَرَفٌ بِخِدمَةِ مَن لَهُ الإعلاءُ', 'كَرَماً يَليقُ بِمَن لَهُ الإعطَاءُ', 'لِلخَلقِ حَقاً إنَّهُم سُعَدَاءُ', 'فاقَ البُدورَ ونورُهُ الوَضَّاءُ'], 1),
+  PoemQ('أكمل الشطر الثاني من البيت:', 'أَسْعِدْ وَأَكرِمْ كلَّ تَالٍ قارئٍ', ['شَرَفٌ بِخِدمَةِ مَن لَهُ الإعلاءُ', 'ذِكْرُ الحَبيبِ وَمَدحُهُ إحيَاءُ', 'هوَ خيرُ غُنْمٍ نَالَهُ السُعَدَاءُ', 'بِالعَدلِ يَحكُمُ والجَميعُ سَواءُ'], 1),
+];
 
 const seraQuiz = <PoemQ>[
   PoemQ('أكمل الشطر الثاني من البيت:', 'بِسْمِ القَدِيرِ الوَاجِدِ المَنَّانِ', ['وَاخْتَارَهُنَّ اللهُ رَبُّ العَالَمِينْ', 'ذِي الفَضْلِ وَالتَّوفِيقِ وَالإحْسَانِ', 'مُنَادِيًا لِلزَّوجَةِ الحَنُونِ', 'مَحَبَّةٌ فِي اللهِ بِاليَقِينِ'], 1),
@@ -4727,6 +5144,11 @@ const alfQuiz = <List<PoemQ>>[
   ],
 ];
 
+class _Wrong {
+  final int q, picked;
+  const _Wrong(this.q, this.picked);
+}
+
 class PoemQuizScreen extends StatefulWidget {
   final String title, bestKey;
   final List<PoemQ> questions;
@@ -4736,9 +5158,14 @@ class PoemQuizScreen extends StatefulWidget {
 }
 
 class _PoemQuizScreenState extends State<PoemQuizScreen> {
-  int idx = 0, score = 0, best = 0;
+  int idx = 0, score = 0, best = 0, streak = 0, bestStreak = 0;
   int? picked;
-  bool done = false, newBest = false;
+  bool started = false, done = false, newBest = false, showReview = false;
+  final List<_Wrong> wrong = [];
+  String? cheer;
+
+  static const _letters = ['أ', 'ب', 'ج', 'د', 'هـ', 'و'];
+  static const _praise = ['أحسنت!', 'ما شاء الله!', 'بارك الله فيك!', 'إجابة صحيحة!', 'ممتاز!'];
 
   @override
   void initState() {
@@ -4746,14 +5173,36 @@ class _PoemQuizScreenState extends State<PoemQuizScreen> {
     best = Repo.prefs.getInt(widget.bestKey) ?? 0;
   }
 
+  String? _cheerFor(int s) {
+    if (s == 3) return 'ما شاء الله! ثلاث إجابات متتالية';
+    if (s == 5) return 'بارك الله فيك! خمس إجابات متتالية';
+    if (s == 10) return 'تبارك الله! عشر إجابات متتالية';
+    if (s > 10 && s % 10 == 0) return 'ما شاء الله تبارك الله! $s إجابة متتالية';
+    return null;
+  }
+
   void pick(int k) {
     if (picked != null) return;
     final q = widget.questions[idx];
+    final ok = k == q.answer;
     setState(() {
       picked = k;
-      if (k == q.answer) score++;
+      if (ok) {
+        score++;
+        streak++;
+        if (streak > bestStreak) bestStreak = streak;
+        cheer = _cheerFor(streak);
+      } else {
+        streak = 0;
+        cheer = null;
+        wrong.add(_Wrong(idx, k));
+      }
     });
-    HapticFeedback.selectionClick();
+    if (ok) {
+      HapticFeedback.lightImpact();
+    } else {
+      HapticFeedback.heavyImpact();
+    }
   }
 
   void next() {
@@ -4763,11 +5212,19 @@ class _PoemQuizScreenState extends State<PoemQuizScreen> {
         best = score;
         Repo.prefs.setInt(widget.bestKey, score);
       }
+      final pct = score * 100 / widget.questions.length;
       setState(() => done = true);
+      if (pct >= 70) HapticFeedback.mediumImpact();
+      if (pct >= 90) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) showHearts(context);
+        });
+      }
     } else {
       setState(() {
         idx++;
         picked = null;
+        cheer = null;
       });
     }
   }
@@ -4775,49 +5232,192 @@ class _PoemQuizScreenState extends State<PoemQuizScreen> {
   void restart() => setState(() {
         idx = 0;
         score = 0;
+        streak = 0;
+        bestStreak = 0;
         picked = null;
         done = false;
         newBest = false;
+        showReview = false;
+        cheer = null;
+        wrong.clear();
       });
+
+  // ---------- شاشة المقدّمة ----------
+  Widget buildIntro(BuildContext context) {
+    final n = widget.questions.length;
+    final ac = accent(context);
+    Widget tip(IconData icon, String text) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 7),
+          child: Row(children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(color: ac.withOpacity(.13), borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, size: 20, color: ac),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(text, style: const TextStyle(fontSize: 15, height: 1.7))),
+          ]),
+        );
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 24),
+      children: [
+        _QIn(
+          index: 0,
+          child: _QuizHero(
+            icon: Icons.quiz_rounded,
+            title: widget.title,
+            subtitle: 'اختبار اختياري لقياس مستوى حفظك',
+            chips: [
+              _QChip(Icons.help_outline_rounded, '$n سؤال'),
+              _QChip(Icons.emoji_events_outlined, best > 0 ? 'أفضل نتيجة: $best / $n' : 'لم تختبر بعد'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _QIn(
+          index: 1,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: ac.withOpacity(.28)),
+            ),
+            child: Column(children: [
+              tip(Icons.menu_book_outlined, 'اقرأ السؤال بتمعّن، ثم اختر الإجابة الصحيحة من الخيارات.'),
+              tip(Icons.bolt_rounded, 'تظهر الإجابة الصحيحة فور اختيارك، وتتراكم النقاط والإجابات المتتالية.'),
+              tip(Icons.fact_check_outlined, 'في النهاية تجد نتيجتك ونجومك، ومراجعة لمواضع الخطأ.'),
+            ]),
+          ),
+        ),
+        const SizedBox(height: 22),
+        _QIn(
+          index: 2,
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              ),
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                setState(() => started = true);
+              },
+              icon: const Icon(Icons.play_arrow_rounded, size: 26),
+              label: const Text('ابدأ الاختبار', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------- الأسئلة ----------
+  Widget pill(BuildContext context, IconData icon, String text, Color color) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withOpacity(.13),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: color.withOpacity(.3)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 5),
+          Text(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+        ]),
+      );
 
   Widget option(BuildContext context, PoemQ q, int k) {
     final answered = picked != null;
     final isRight = k == q.answer;
     final isPicked = picked == k;
-    Color border = accent(context).withOpacity(.3);
+    final ac = accent(context);
+    Color border = ac.withOpacity(.28);
     Color fill = Theme.of(context).cardColor;
+    Color letterBg = ac.withOpacity(.13);
+    Color letterFg = ac;
     IconData? mark;
     if (answered && isRight) {
-      border = Colors.green;
-      fill = Colors.green.withOpacity(.16);
-      mark = Icons.check_circle;
+      border = _okGreen;
+      fill = _okGreen.withOpacity(.15);
+      letterBg = _okGreen;
+      letterFg = Colors.white;
+      mark = Icons.check_circle_rounded;
     } else if (answered && isPicked) {
-      border = Colors.red;
-      fill = Colors.red.withOpacity(.14);
-      mark = Icons.cancel;
+      border = _badRed;
+      fill = _badRed.withOpacity(.13);
+      letterBg = _badRed;
+      letterFg = Colors.white;
+      mark = Icons.cancel_rounded;
     }
+    final dim = answered && !isRight && !isPicked;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: answered ? null : () => pick(k),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          decoration: BoxDecoration(
-            color: fill,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: border, width: answered && (isRight || isPicked) ? 2 : 1),
-          ),
-          child: Row(children: [
-            Expanded(
-              child: Text(q.options[k],
-                  textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, height: 1.9, fontWeight: FontWeight.w600)),
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 250),
+        opacity: dim ? .55 : 1,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: answered ? null : () => pick(k),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: fill,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: border, width: answered && (isRight || isPicked) ? 2 : 1.2),
             ),
-            if (mark != null) Icon(mark, color: isRight ? Colors.green : Colors.red),
-          ]),
+            child: Row(children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: letterBg),
+                child: Text(k < _letters.length ? _letters[k] : '${k + 1}',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: letterFg)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(q.options[k],
+                    textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, height: 1.9, fontWeight: FontWeight.w600)),
+              ),
+              SizedBox(
+                width: 30,
+                child: mark != null ? Icon(mark, color: isRight ? _okGreen : _badRed, size: 26) : null,
+              ),
+            ]),
+          ),
         ),
       ),
+    );
+  }
+
+  Widget buildFeedback(BuildContext context, PoemQ q) {
+    final ok = picked == q.answer;
+    final c = ok ? _okGreen : _badRed;
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+      decoration: BoxDecoration(
+        color: c.withOpacity(.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: c.withOpacity(.4)),
+      ),
+      child: Row(children: [
+        Icon(ok ? Icons.celebration_rounded : Icons.lightbulb_outline_rounded, color: c),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            ok ? (cheer ?? _praise[idx % _praise.length]) : 'لا بأس، الصواب هو المحدَّد بالأخضر. تابع بإذن الله',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: c, height: 1.6),
+          ),
+        ),
+      ]),
     );
   }
 
@@ -4825,38 +5425,78 @@ class _PoemQuizScreenState extends State<PoemQuizScreen> {
     final q = widget.questions[idx];
     final n = widget.questions.length;
     final ac = accent(context);
-    final hint = Theme.of(context).hintColor;
     final answered = picked != null;
     return Column(children: [
-      LinearProgressIndicator(
-        value: (idx + (answered ? 1 : 0)) / n,
-        minHeight: 5,
-        color: ac,
-        backgroundColor: ac.withOpacity(.15),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+        child: Column(children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: (idx + (answered ? 1 : 0)) / n),
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeOut,
+              builder: (_, v, __) => LinearProgressIndicator(value: v, minHeight: 9, color: ac, backgroundColor: ac.withOpacity(.15)),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            pill(context, Icons.help_outline_rounded, 'السؤال ${idx + 1} / $n', ac),
+            if (streak >= 2) pill(context, Icons.local_fire_department_rounded, '$streak متتالية', const Color(0xFFFF8F00)),
+            pill(context, Icons.star_rounded, 'الدرجة: $score', const Color(0xFFD99A00)),
+          ]),
+        ]),
       ),
       Expanded(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
           children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text('السؤال ${idx + 1} / $n', style: TextStyle(color: hint)),
-              Text('الدرجة: $score', style: TextStyle(color: hint)),
-            ]),
-            const SizedBox(height: 10),
-            Text(q.prompt, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: ac)),
-            const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-              decoration: BoxDecoration(
-                color: ac.withOpacity(.1),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: ac.withOpacity(.4)),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 320),
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: SlideTransition(position: Tween<Offset>(begin: const Offset(.08, 0), end: Offset.zero).animate(anim), child: child),
               ),
-              child: Text(q.stem, textAlign: TextAlign.center, style: const TextStyle(fontSize: 21, height: 2.0, fontWeight: FontWeight.bold)),
+              child: Column(
+                key: ValueKey(idx),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text(q.prompt, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: ac)),
+                    ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topRight,
+                        end: Alignment.bottomLeft,
+                        colors: [ac.withOpacity(.16), sec(context).withOpacity(.10)],
+                      ),
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: ac.withOpacity(.4)),
+                    ),
+                    child: CustomPaint(
+                      foregroundPainter: _CornerPainter(sec(context).withOpacity(.85)),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 28),
+                        child: Text(q.stem,
+                            textAlign: TextAlign.center, style: const TextStyle(fontSize: 21, height: 2.0, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  for (var k = 0; k < q.options.length; k++) option(context, q, k),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 250),
+                    alignment: Alignment.topCenter,
+                    child: answered ? buildFeedback(context, q) : const SizedBox(width: double.infinity),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 10),
-            for (var k = 0; k < q.options.length; k++) option(context, q, k),
           ],
         ),
       ),
@@ -4865,12 +5505,71 @@ class _PoemQuizScreenState extends State<PoemQuizScreen> {
           padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
           child: SizedBox(
             width: double.infinity,
-            child: FilledButton(
-              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+            child: FilledButton.icon(
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
               onPressed: next,
-              child: Text(idx + 1 >= n ? 'عرض النتيجة' : 'السؤال التالي', style: const TextStyle(fontSize: 16)),
+              icon: Icon(idx + 1 >= n ? Icons.emoji_events_rounded : Icons.arrow_back_rounded),
+              label: Text(idx + 1 >= n ? 'عرض النتيجة' : 'السؤال التالي', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
             ),
           ),
+        ),
+    ]);
+  }
+
+  // ---------- النتيجة والتهنئة ----------
+  Widget statTile(BuildContext context, IconData icon, String value, String label, Color color) => Expanded(
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: color.withOpacity(.12),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: color.withOpacity(.3)),
+          ),
+          child: Column(children: [
+            Icon(icon, color: color, size: 22),
+            const SizedBox(height: 4),
+            Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+            Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor)),
+          ]),
+        ),
+      );
+
+  Widget buildReview(BuildContext context) {
+    final hint = Theme.of(context).hintColor;
+    return Column(children: [
+      for (final w in wrong)
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: accent(context).withOpacity(.25)),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('السؤال ${w.q + 1}', style: TextStyle(fontSize: 12, color: hint)),
+            const SizedBox(height: 4),
+            Text(widget.questions[w.q].stem, style: const TextStyle(fontSize: 17, height: 1.9, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.cancel_rounded, color: _badRed, size: 20),
+              const SizedBox(width: 6),
+              Expanded(child: Text(widget.questions[w.q].options[w.picked], style: const TextStyle(fontSize: 15, height: 1.7, color: _badRed))),
+            ]),
+            const SizedBox(height: 4),
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.check_circle_rounded, color: _okGreen, size: 20),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(widget.questions[w.q].options[widget.questions[w.q].answer],
+                    style: const TextStyle(fontSize: 15, height: 1.7, color: _okGreen, fontWeight: FontWeight.bold)),
+              ),
+            ]),
+          ]),
         ),
     ]);
   }
@@ -4879,50 +5578,200 @@ class _PoemQuizScreenState extends State<PoemQuizScreen> {
     final n = widget.questions.length;
     final ac = accent(context);
     final pct = (score * 100 / n).round();
-    final msg = pct >= 90
-        ? 'ما شاء الله، حفظ متقن'
+    final stars = pct >= 90 ? 3 : pct >= 70 ? 2 : pct >= 50 ? 1 : 0;
+    final level = pct >= 90
+        ? 'حافظ متقن'
         : pct >= 70
-            ? 'جيد جدًا، راجع المواضع التي أخطأت فيها'
+            ? 'حفظ جيد جدًا'
             : pct >= 50
-                ? 'جيد، تحتاج إلى مراجعة أكثر'
-                : 'واصل مراجعة المنظومة ثم أعد المحاولة';
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Icon(Icons.emoji_events, size: 72, color: ac),
-          const SizedBox(height: 12),
-          Text('انتهى الاختبار', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: ac)),
-          const SizedBox(height: 10),
-          Text('$score / $n', style: const TextStyle(fontSize: 38, fontWeight: FontWeight.bold)),
-          Text('$pct%', style: TextStyle(fontSize: 18, color: Theme.of(context).hintColor)),
-          const SizedBox(height: 10),
-          Text(msg, textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, height: 1.6)),
-          const SizedBox(height: 6),
-          Text(newBest ? 'نتيجة جديدة هي الأفضل لك' : 'أفضل نتيجة: $best / $n',
-              style: TextStyle(color: newBest ? Colors.green : Theme.of(context).hintColor)),
-          const SizedBox(height: 22),
+                ? 'في الطريق الصحيح'
+                : 'واصل المراجعة';
+    final tahnia = pct >= 90
+        ? 'تهانينا! ما شاء الله تبارك الله، حفظٌ متقن. نسأل الله أن يبارك لك في حفظك، ويرزقك محبة النبي ﷺ وشفاعته.'
+        : pct >= 70
+            ? 'أحسنت! مستواك جيد جدًا. راجع المواضع التي أخطأت فيها وستصل إلى الإتقان بإذن الله.'
+            : pct >= 50
+                ? 'بداية طيبة، وبمزيد من المراجعة ستتقن الحفظ بإذن الله.'
+                : 'لا تيأس، فمن جدّ وجد. راجع النص ثم أعد المحاولة، والله يعينك ويفتح عليك.';
+    final celebrate = pct >= 70;
+    return Stack(children: [
+      ListView(
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 28),
+        children: [
+          _QIn(
+            index: 0,
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(begin: Alignment.topRight, end: Alignment.bottomLeft, colors: _heroColors(context)),
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [BoxShadow(color: pri(context).withOpacity(.35), blurRadius: 20, offset: const Offset(0, 8))],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: CustomPaint(
+                  foregroundPainter: _CornerPainter(sec(context).withOpacity(.9)),
+                  child: Stack(children: [
+                    Positioned.fill(child: RepaintBoundary(child: CustomPaint(painter: _StarPatternPainter(Colors.white)))),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 26, 20, 24),
+                      child: Column(children: [
+                        const Text('انتهى الاختبار', style: TextStyle(fontSize: 15, color: Colors.white70)),
+                        const SizedBox(height: 12),
+                        TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0, end: score / n),
+                          duration: const Duration(milliseconds: 1500),
+                          curve: Curves.easeOutCubic,
+                          builder: (_, v, __) => SizedBox(
+                            width: 170,
+                            height: 170,
+                            child: Stack(alignment: Alignment.center, children: [
+                              CustomPaint(size: const Size(170, 170), painter: _RingPainter(v, _gold, Colors.white.withOpacity(.2))),
+                              Column(mainAxisSize: MainAxisSize.min, children: [
+                                Text('$score', style: const TextStyle(fontSize: 46, fontWeight: FontWeight.bold, color: Colors.white, height: 1.1)),
+                                Text('من $n', style: const TextStyle(fontSize: 14, color: Colors.white70)),
+                                Text('$pct%', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _gold)),
+                              ]),
+                            ]),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          for (var k = 0; k < 3; k++)
+                            TweenAnimationBuilder<double>(
+                              tween: Tween(begin: 0, end: 1),
+                              duration: Duration(milliseconds: 600 + k * 450),
+                              curve: Curves.elasticOut,
+                              builder: (_, v, __) => Transform.scale(
+                                scale: v.clamp(0.0, 1.4).toDouble(),
+                                child: Icon(
+                                  k < stars ? Icons.star_rounded : Icons.star_outline_rounded,
+                                  size: k == 1 ? 58 : 46,
+                                  color: k < stars ? _gold : Colors.white38,
+                                ),
+                              ),
+                            ),
+                        ]),
+                        const SizedBox(height: 6),
+                        Text(level, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+                        if (newBest || pct == 100) ...[
+                          const SizedBox(height: 12),
+                          Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
+                            if (pct == 100) const _QChip(Icons.verified_rounded, 'درجة كاملة'),
+                            if (newBest) const _QChip(Icons.emoji_events_rounded, 'رقم قياسي جديد'),
+                          ]),
+                        ],
+                      ]),
+                    ),
+                  ]),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          _QIn(
+            index: 1,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              decoration: BoxDecoration(
+                color: _gold.withOpacity(isDark(context) ? .10 : .16),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: _gold.withOpacity(.65), width: 1.4),
+              ),
+              child: Column(children: [
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(celebrate ? Icons.celebration_rounded : Icons.favorite_rounded, color: const Color(0xFFD99A00)),
+                  const SizedBox(width: 8),
+                  Text(celebrate ? 'تهنئة' : 'كلمة تشجيع',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: ac)),
+                ]),
+                const SizedBox(height: 8),
+                const OrnamentDivider(),
+                const SizedBox(height: 10),
+                Text(tahnia, textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, height: 1.9)),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 14),
+          _QIn(
+            index: 2,
+            child: Row(children: [
+              statTile(context, Icons.check_circle_rounded, '$score', 'صحيحة', _okGreen),
+              const SizedBox(width: 8),
+              statTile(context, Icons.cancel_rounded, '${n - score}', 'خاطئة', _badRed),
+              const SizedBox(width: 8),
+              statTile(context, Icons.local_fire_department_rounded, '$bestStreak', 'أطول سلسلة', const Color(0xFFFF8F00)),
+            ]),
+          ),
+          if (!newBest)
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text('أفضل نتيجة لك: $best / $n',
+                  textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).hintColor)),
+            ),
+          const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
               onPressed: restart,
-              icon: const Icon(Icons.refresh),
-              label: const Text('إعادة الاختبار'),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('إعادة الاختبار', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ),
+          if (wrong.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: () => setState(() => showReview = !showReview),
+                icon: Icon(showReview ? Icons.expand_less_rounded : Icons.fact_check_outlined),
+                label: Text(showReview ? 'إخفاء المراجعة' : 'مراجعة الأخطاء (${wrong.length})'),
+              ),
+            ),
+          ],
+          if (showReview) buildReview(context),
           const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-              onPressed: () => Navigator.pop(context),
-              child: const Text('رجوع'),
+          Row(children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(
+                      text: 'حصلت على $score / $n ($pct%) في اختبار «${widget.title}» ضمن تطبيق مكتبة الأنوار المحمدية'));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم نسخ النتيجة')));
+                },
+                icon: const Icon(Icons.copy_rounded, size: 18),
+                label: const Text('نسخ النتيجة'),
+              ),
             ),
-          ),
-        ]),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                label: const Text('رجوع'),
+              ),
+            ),
+          ]),
+        ],
       ),
-    );
+      if (celebrate) const Positioned.fill(child: _Confetti()),
+    ]);
   }
 
   @override
@@ -4931,7 +5780,17 @@ class _PoemQuizScreenState extends State<PoemQuizScreen> {
       textDirection: TextDirection.rtl,
       child: Scaffold(
         appBar: AppBar(title: Text(widget.title, style: const TextStyle(fontSize: 16))),
-        body: SafeArea(child: done ? buildResult(context) : buildQuestion(context)),
+        body: PageBackdrop(
+          child: SafeArea(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: KeyedSubtree(
+                key: ValueKey(done ? 'result' : (started ? 'quiz' : 'intro')),
+                child: done ? buildResult(context) : (started ? buildQuestion(context) : buildIntro(context)),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -8490,66 +9349,432 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+  static const _gold = Color(0xFFC9A227);
+  static const _cream = Color(0xFFFFF3C4);
+  late final AnimationController _c;
+  late final String _verse = _pickVerse();
+  late final String? _resumeTitle = _resume();
+  bool _left = false;
+
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 4), () {
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(PageRouteBuilder<void>(
-        pageBuilder: (_, __, ___) => const Shell(),
-        transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: a, child: child),
-        transitionDuration: const Duration(milliseconds: 700),
-      ));
+    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 5200))..forward();
+    _c.addStatusListener((s) {
+      if (s == AnimationStatus.completed) _enter();
     });
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor ?? const Color(0xFF0B5D3B),
-        body: SafeArea(
-          child: Center(
-            child: TweenAnimationBuilder<double>(
-              tween: Tween<double>(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 1400),
-              builder: (_, v, child) => Opacity(opacity: v, child: child),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const SweepGradient(
-                        colors: [Color(0xFFC9A227), Color(0xFFF1DC8A), Color(0xFFC9A227), Color(0xFFFFF3C4), Color(0xFFC9A227)]),
-                    boxShadow: [BoxShadow(color: const Color(0xFFC9A227).withOpacity(.5), blurRadius: 30, spreadRadius: 3)],
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  void _enter() {
+    if (_left || !mounted) return;
+    _left = true;
+    Navigator.of(context).pushReplacement(PageRouteBuilder<void>(
+      pageBuilder: (_, __, ___) => const Shell(),
+      transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: a, child: child),
+      transitionDuration: const Duration(milliseconds: 700),
+    ));
+  }
+
+  // آية أو حديث أو صيغة صلاة بتتغيّر كل يوم، ويوم الجمعة ليه رسالة خاصة
+  String _pickVerse() {
+    final now = DateTime.now();
+    if (now.weekday == DateTime.friday) return 'جمعة مباركة، فأكثروا من الصلاة على النبي ﷺ';
+    const list = [
+      'اللهم صلِّ وسلِّم وبارك على سيدنا محمد وعلى آله وصحبه أجمعين',
+      'إِنَّ اللَّهَ وَمَلَائِكَتَهُ يُصَلُّونَ عَلَى النَّبِيِّ يَا أَيُّهَا الَّذِينَ آمَنُوا صَلُّوا عَلَيْهِ وَسَلِّمُوا تَسْلِيمًا',
+      'مَنْ صَلَّى عَلَيَّ صَلَاةً صَلَّى اللَّهُ عَلَيْهِ بِهَا عَشْرًا',
+      'اللهم صلِّ على سيدنا محمد النبي الأمي وعلى آله وسلِّم',
+    ];
+    final day = now.difference(DateTime(now.year)).inDays;
+    return list[day % list.length];
+  }
+
+  // آخر كتاب كان القارئ بيقرا فيه (لو موجود)
+  String? _resume() {
+    try {
+      final id = Repo.prefs.getString('last_book');
+      if (id == null) return null;
+      return Repo.byId(id).title;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _greeting() {
+    final h = DateTime.now().hour;
+    if (h >= 4 && h < 12) return 'صباح النور';
+    if (h >= 12 && h < 17) return 'طاب يومك';
+    return 'مساء النور';
+  }
+
+  double _t(double a, double b, [Curve k = Curves.easeOutCubic]) =>
+      k.transform(((_c.value - a) / (b - a)).clamp(0.0, 1.0).toDouble());
+
+  Widget _reveal(double a, double b, Widget child, {double dy = 18}) {
+    final v = _t(a, b);
+    return Opacity(opacity: v, child: Transform.translate(offset: Offset(0, (1 - v) * dy), child: child));
+  }
+
+  Widget _pill(IconData icon, String text) => Container(
+        margin: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(.2),
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: _gold.withOpacity(.55)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 16, color: _gold),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(text,
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: _cream, fontSize: 13.5, fontWeight: FontWeight.w600)),
+          ),
+        ]),
+      );
+
+  // صورة المؤلف داخل إطار محراب (قوس مدبّب) بإطار ذهبي مزدوج وشعاع نور خلفه
+  Widget _logo(double aw) {
+    final ah = aw * 1.28;
+    final lv = _t(0, .28, Curves.easeOutBack);
+    return Opacity(
+      opacity: lv.clamp(0.0, 1.0).toDouble(),
+      child: Transform.scale(
+        scale: .6 + .4 * lv,
+        child: SizedBox(
+          width: aw + 80,
+          height: ah + 50,
+          child: Stack(alignment: Alignment.center, clipBehavior: Clip.none, children: [
+            Positioned.fill(child: CustomPaint(painter: _RaysPainter(_c))),
+            Padding(
+              padding: const EdgeInsets.only(top: 30, bottom: 20),
+              child: SizedBox(
+                width: aw,
+                height: ah,
+                child: Stack(fit: StackFit.expand, clipBehavior: Clip.none, children: [
+                  CustomPaint(painter: _ArchFramePainter(_c, false)),
+                  ClipPath(
+                    clipper: const _ArchClipper(7),
+                    child: Stack(fit: StackFit.expand, children: [
+                      const ColoredBox(color: Color(0xFFFFF8E1)),
+                      Image.asset(
+                        'assets/images/author.png',
+                        fit: BoxFit.cover,
+                        alignment: Alignment.topCenter,
+                        cacheWidth: 600,
+                        errorBuilder: (_, __, ___) => const Icon(Icons.auto_stories, size: 80, color: _gold),
+                      ),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, Colors.black.withOpacity(.28)],
+                            stops: const [.65, 1],
+                          ),
+                        ),
+                      ),
+                    ]),
                   ),
-                  child: Container(
-                    padding: const EdgeInsets.all(5),
-                    decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
-                    child: ClipOval(
-                        child: Image.asset('assets/images/author.png', width: 230, height: 230, fit: BoxFit.cover, cacheWidth: 500)),
-                  ),
-                ),
-                const SizedBox(height: 34),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24),
-                  child: Text(
-                    'أهلاً بك يا حبيب رسول الله ﷺ',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: 'ArefRuqaa',
-                      fontWeight: FontWeight.bold,
-                      fontSize: 36,
-                      height: 1.8,
-                      color: Color(0xFFFFF3C4),
-                      shadows: [Shadow(color: Colors.black38, blurRadius: 8, offset: Offset(0, 2))],
+                  CustomPaint(painter: _ArchFramePainter(_c, true)),
+                ]),
+              ),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _title() {
+    final shine = (_c.value * 2.5) % 1.0;
+    return ShaderMask(
+      blendMode: BlendMode.srcIn,
+      shaderCallback: (r) => LinearGradient(
+        begin: Alignment(-1.5 + 3 * shine, 0),
+        end: Alignment(-0.5 + 3 * shine, 0),
+        tileMode: TileMode.mirror,
+        colors: const [_gold, _cream],
+      ).createShader(r),
+      child: const Text(
+        'مكتبة الأنوار المحمدية',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontFamily: 'ArefRuqaa', fontWeight: FontWeight.bold, fontSize: 40, height: 1.6, color: Colors.white),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pc = pri(context);
+    final d = (MediaQuery.of(context).size.shortestSide * .52).clamp(160.0, 230.0).toDouble();
+    return Scaffold(
+      backgroundColor: Color.lerp(pc, Colors.black, .4),
+      body: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          _enter();
+        },
+        child: Stack(fit: StackFit.expand, children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color.lerp(pc, Colors.black, .55)!, pc, Color.lerp(pc, Colors.black, .4)!],
+              ),
+            ),
+          ),
+          RepaintBoundary(child: CustomPaint(painter: const _StarPatternPainter(_gold))),
+          RepaintBoundary(child: CustomPaint(painter: _SparklePainter(_c))),
+          SafeArea(
+            child: AnimatedBuilder(
+              animation: _c,
+              builder: (_, __) => Column(children: [
+                Expanded(
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        _logo(d),
+                        _reveal(.22, .46, _title()),
+                        _reveal(.36, .58, const SizedBox(width: 220, child: OrnamentDivider())),
+                        const SizedBox(height: 6),
+                        _reveal(
+                          .44,
+                          .68,
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 24),
+                            child: Text(
+                              'أهلاً بك يا حبيب رسول الله ﷺ',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: 'ArefRuqaa',
+                                fontWeight: FontWeight.bold,
+                                fontSize: 28,
+                                height: 1.8,
+                                color: _cream,
+                                shadows: [Shadow(color: Colors.black38, blurRadius: 8, offset: Offset(0, 2))],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ]),
                     ),
                   ),
                 ),
+                _reveal(
+                  .62,
+                  .86,
+                  Column(children: [
+                    _pill(Icons.calendar_month_rounded, '${_greeting()} · ${hijriNow(DateTime.now())}'),
+                    if (_resumeTitle != null) ...[
+                      const SizedBox(height: 8),
+                      _pill(Icons.auto_stories_rounded, 'تابع من حيث توقفت: $_resumeTitle'),
+                    ],
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(32, 14, 32, 0),
+                      child: Text(
+                        _verse,
+                        textAlign: TextAlign.center,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontFamily: 'ArefRuqaa', fontSize: 19, height: 1.7, color: _cream.withOpacity(.85)),
+                      ),
+                    ),
+                  ]),
+                ),
+                const SizedBox(height: 20),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: SizedBox(
+                    width: 160,
+                    height: 4,
+                    child: LinearProgressIndicator(
+                      value: _c.value,
+                      backgroundColor: Colors.white12,
+                      valueColor: const AlwaysStoppedAnimation<Color>(_gold),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Opacity(
+                  opacity: _t(.6, .8) * .6,
+                  child: const Text('اضغط في أي مكان للدخول', style: TextStyle(color: Colors.white, fontSize: 12)),
+                ),
+                const SizedBox(height: 16),
               ]),
             ),
           ),
-        ),
+        ]),
+      ),
+    );
+  }
+}
+
+// شكل المحراب: قوس مدبّب من فوق وأركان مدورة من تحت
+Path _archPath(Rect r) {
+  final w = r.width, h = r.height;
+  final sy = r.top + h * .46;
+  const cr = 16.0;
+  return Path()
+    ..moveTo(r.left, r.bottom - cr)
+    ..lineTo(r.left, sy)
+    ..cubicTo(r.left, r.top + h * .2, r.left + w * .36, r.top + h * .12, r.center.dx, r.top)
+    ..cubicTo(r.right - w * .36, r.top + h * .12, r.right, r.top + h * .2, r.right, sy)
+    ..lineTo(r.right, r.bottom - cr)
+    ..quadraticBezierTo(r.right, r.bottom, r.right - cr, r.bottom)
+    ..lineTo(r.left + cr, r.bottom)
+    ..quadraticBezierTo(r.left, r.bottom, r.left, r.bottom - cr)
+    ..close();
+}
+
+class _ArchClipper extends CustomClipper<Path> {
+  final double inset;
+  const _ArchClipper(this.inset);
+  @override
+  Path getClip(Size s) => _archPath((Offset.zero & s).deflate(inset));
+  @override
+  bool shouldReclip(covariant _ArchClipper old) => old.inset != inset;
+}
+
+// الإطار الذهبي: الخلف (توهج + إطار سميك بتدرّج بيلف + خط خارجي) والأمام (خط داخلي رفيع + زخرفة القمة)
+class _ArchFramePainter extends CustomPainter {
+  final Animation<double> t;
+  final bool front;
+  _ArchFramePainter(this.t, this.front) : super(repaint: t);
+
+  void _diamond(Canvas c, Offset o, double r, Paint p) {
+    final path = Path()
+      ..moveTo(o.dx, o.dy - r)
+      ..lineTo(o.dx + r, o.dy)
+      ..lineTo(o.dx, o.dy + r)
+      ..lineTo(o.dx - r, o.dy)
+      ..close();
+    c.drawPath(path, p);
+  }
+
+  @override
+  void paint(Canvas c, Size s) {
+    const gold = Color(0xFFC9A227);
+    const cream = Color(0xFFFFF3C4);
+    final fade = (t.value * 4).clamp(0.0, 1.0).toDouble();
+    final rect = Offset.zero & s;
+    if (!front) {
+      final glow = 16 + 8 * dmath.sin(t.value * 2 * dmath.pi * 4);
+      c.drawPath(
+        _archPath(rect),
+        Paint()
+          ..color = gold.withOpacity(.4 * fade)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, glow),
       );
+      c.drawPath(
+        _archPath(rect.inflate(7)),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2
+          ..color = gold.withOpacity(.5 * fade),
+      );
+      c.drawPath(
+        _archPath(rect),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 5
+          ..shader = SweepGradient(
+            transform: GradientRotation(t.value * 2 * dmath.pi * 2),
+            colors: const [gold, Color(0xFFF1DC8A), gold, cream, gold],
+          ).createShader(rect),
+      );
+    } else {
+      c.drawPath(
+        _archPath(rect.deflate(7)),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2
+          ..color = cream.withOpacity(.7 * fade),
+      );
+      final cx = s.width / 2;
+      _diamond(c, Offset(cx, -18), 7, Paint()..color = gold.withOpacity(fade));
+      _diamond(c, Offset(cx - 16, -12), 3.5, Paint()..color = cream.withOpacity(.9 * fade));
+      _diamond(c, Offset(cx + 16, -12), 3.5, Paint()..color = cream.withOpacity(.9 * fade));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ArchFramePainter old) => false;
+}
+
+// أشعة نور هادية بتلف ببطء ورا المحراب
+class _RaysPainter extends CustomPainter {
+  final Animation<double> t;
+  _RaysPainter(this.t) : super(repaint: t);
+
+  @override
+  void paint(Canvas c, Size s) {
+    final o = s.center(Offset.zero).translate(0, 10);
+    final r = s.longestSide * .8;
+    final fade = (t.value * 4).clamp(0.0, 1.0).toDouble();
+    final p = Paint()
+      ..shader = RadialGradient(
+        colors: [const Color(0xFFFFF3C4).withOpacity(.22 * fade), const Color(0xFFFFF3C4).withOpacity(0)],
+      ).createShader(Rect.fromCircle(center: o, radius: r));
+    const n = 14;
+    final base = t.value * 2 * dmath.pi * .08;
+    for (var i = 0; i < n; i++) {
+      final a0 = base + i * 2 * dmath.pi / n;
+      final a1 = a0 + dmath.pi / n;
+      final path = Path()
+        ..moveTo(o.dx, o.dy)
+        ..lineTo(o.dx + dmath.cos(a0) * r, o.dy + dmath.sin(a0) * r)
+        ..lineTo(o.dx + dmath.cos(a1) * r, o.dy + dmath.sin(a1) * r)
+        ..close();
+      c.drawPath(path, p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RaysPainter old) => false;
+}
+
+// نجوم صغيرة بتلمع وتطلع لفوق بالراحة
+class _SparklePainter extends CustomPainter {
+  final Animation<double> t;
+  _SparklePainter(this.t) : super(repaint: t);
+
+  // [x, y, حجم, طور, سرعة]
+  static final List<List<double>> _pts = () {
+    final r = dmath.Random(11);
+    return List.generate(26, (_) => [r.nextDouble(), r.nextDouble(), 1.5 + r.nextDouble() * 3.5, r.nextDouble() * 6.28, .5 + r.nextDouble()]);
+  }();
+
+  @override
+  void paint(Canvas c, Size s) {
+    final fade = (t.value * 5).clamp(0.0, 1.0).toDouble();
+    final p = Paint()
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 1.2;
+    for (final q in _pts) {
+      final x = q[0] * s.width;
+      final y = ((q[1] - t.value * .12 * q[4]) % 1.0) * s.height;
+      final tw = (dmath.sin(t.value * 2 * dmath.pi * 3 * q[4] + q[3]) + 1) / 2;
+      p.color = const Color(0xFFFFF3C4).withOpacity((.12 + .55 * tw) * fade);
+      final r = q[2];
+      c.drawLine(Offset(x - r, y), Offset(x + r, y), p);
+      c.drawLine(Offset(x, y - r), Offset(x, y + r), p);
+      c.drawCircle(Offset(x, y), r * .35, p..style = PaintingStyle.fill);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SparklePainter old) => false;
 }
 
 
