@@ -28,12 +28,18 @@ jobs:
           flutter create --org com.anwar --project-name anwar_library --platforms android .
           flutter pub add url_launcher font_awesome_flutter scrollable_positioned_list
           sed -i 's/android:label="[^"]*"/android:label="مكتبة الأنوار المحمدية"/' android/app/src/main/AndroidManifest.xml
-          for f in android/app/build.gradle.kts android/app/build.gradle; do
-            if [ -f "$f" ]; then
-              sed -i -E 's/^([[:space:]]*)compileSdk(Version)?[[:space:]]*=?[[:space:]]*.*/\1compileSdk = 37/' "$f"
-            fi
-          done
-          grep -n "compileSdk" android/app/build.gradle* || true
+          python3 - <<'PY'
+          import re, glob
+          done = False
+          for f in glob.glob('android/app/build.gradle*'):
+              s = open(f, encoding='utf-8').read()
+              n = re.sub(r'compileSdk(Version)?\s*=?\s*[^\n]+', 'compileSdk = 37', s)
+              open(f, 'w', encoding='utf-8').write(n)
+              print('=====', f)
+              print(n)
+              done = done or 'compileSdk = 37' in n
+          assert done, 'compileSdk not patched'
+          PY
           flutter pub get
           dart run flutter_launcher_icons
           flutter build apk --release --split-per-abi --target-platform android-arm64
