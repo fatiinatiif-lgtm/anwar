@@ -820,24 +820,43 @@ class _TwinklePainter extends CustomPainter {
   bool shouldRepaint(covariant _TwinklePainter old) => old.color != color;
 }
 
-// إطار هادئ ووقور حول الصورة (بدون حركة)
+// إطار وقور حول صورة الشيخ: شُرفات متشابكة + ميداليات خاتم سليمان (بدون حركة)
 class _HeroFrame extends StatelessWidget {
   const _HeroFrame();
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        height: 290,
-        child: Center(
-          child: SizedBox(
-            width: 280,
-            height: 280,
-            child: Stack(alignment: Alignment.center, children: [
-              CustomPaint(size: const Size(280, 280), painter: _CalmFramePainter(sec(context), isDark(context))),
-              const AuthorPhoto(size: 170),
-            ]),
-          ),
+  Widget build(BuildContext context) {
+    final g = sec(context);
+    const d = 206.0; // قطر الصورة
+    return SizedBox(
+      height: 310,
+      child: Center(
+        child: SizedBox(
+          width: 300,
+          height: 300,
+          child: Stack(alignment: Alignment.center, children: [
+            CustomPaint(size: const Size(300, 300), painter: _CalmFramePainter(g, isDark(context))),
+            Container(
+              width: d,
+              height: d,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(.35), blurRadius: 18, offset: const Offset(0, 6))],
+              ),
+              // الصورة فيها إطار ذهبي جاهز؛ بنقصّ عند حافته بالظبط ونكبّرها شوية
+              child: ClipOval(
+                child: OverflowBox(
+                  maxWidth: d / .955,
+                  maxHeight: d / .955,
+                  child: Image.asset('assets/images/author_home.jpg', width: d / .955, height: d / .955, fit: BoxFit.cover, cacheWidth: 700),
+                ),
+              ),
+            ),
+          ]),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _CalmFramePainter extends CustomPainter {
@@ -845,82 +864,99 @@ class _CalmFramePainter extends CustomPainter {
   final bool dark;
   const _CalmFramePainter(this.gold, this.dark);
 
-  // نجمة مسنّنة: n رأس، نصف قطر خارجي R وداخلي r
-  Path _star(int n, double R, double r) {
+  // سلسلة شُرفات (أقواس مدبّبة) حوالين الدايرة
+  Path _scallops(int n, double r, double ctl, double phase) {
     final p = Path();
-    for (var k = 0; k < n * 2; k++) {
-      final rr = k.isEven ? R : r;
-      final a = -dmath.pi / 2 + k * dmath.pi / n;
-      final pt = Offset(dmath.cos(a) * rr, dmath.sin(a) * rr);
-      if (k == 0) {
-        p.moveTo(pt.dx, pt.dy);
-      } else {
-        p.lineTo(pt.dx, pt.dy);
-      }
+    for (var i = 0; i < n; i++) {
+      final a0 = phase + i * 2 * dmath.pi / n;
+      final a1 = phase + (i + 1) * 2 * dmath.pi / n;
+      final am = (a0 + a1) / 2;
+      final p0 = Offset(dmath.cos(a0), dmath.sin(a0)) * r;
+      final p1 = Offset(dmath.cos(a1), dmath.sin(a1)) * r;
+      final c = Offset(dmath.cos(am), dmath.sin(am)) * ctl;
+      if (i == 0) p.moveTo(p0.dx, p0.dy);
+      p.quadraticBezierTo(c.dx, c.dy, p1.dx, p1.dy);
     }
     return p..close();
+  }
+
+  // خاتم سليمان: مربعين متقاطعين
+  void _khatam(Canvas c, Offset o, double r, Paint fill, Paint hole) {
+    for (final rot in [0.0, dmath.pi / 4]) {
+      c.save();
+      c.translate(o.dx, o.dy);
+      c.rotate(rot);
+      c.drawRect(Rect.fromCenter(center: Offset.zero, width: r * 1.45, height: r * 1.45), fill);
+      c.restore();
+    }
+    c.drawCircle(o, r * .34, hole);
   }
 
   @override
   void paint(Canvas c, Size s) {
     final ctr = Offset(s.width / 2, s.height / 2);
-    final r0 = s.width / 2;
-    final light = Color.lerp(gold, Colors.white, .55)!;
-    final deep = Color.lerp(gold, Colors.black, .25)!;
+    final light = Color.lerp(gold, Colors.white, .5)!;
+    final deep = Color.lerp(gold, Colors.black, .3)!;
+    final halo = dark ? const Color(0xFF1E1E1E) : Colors.white;
 
-    // هالة ناعمة
+    // هالة دافية خلف الإطار
     c.drawCircle(
       ctr,
-      r0,
+      s.width / 2,
       Paint()
         ..shader = RadialGradient(
           colors: [gold.withOpacity(dark ? .30 : .22), gold.withOpacity(0)],
-          stops: const [.6, 1.0],
-        ).createShader(Rect.fromCircle(center: ctr, radius: r0)),
+          stops: const [.62, 1.0],
+        ).createShader(Rect.fromCircle(center: ctr, radius: s.width / 2)),
     );
 
     c.save();
     c.translate(ctr.dx, ctr.dy);
-    final rect = Rect.fromCircle(center: Offset.zero, radius: 140);
-    final sweep = SweepGradient(colors: [gold, light, gold, deep, gold]).createShader(rect);
+    final box = Rect.fromCircle(center: Offset.zero, radius: 150);
+    Paint line(double w, [double o = 1]) => Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w
+      ..strokeJoin = StrokeJoin.round
+      ..shader = SweepGradient(colors: [for (final x in [gold, light, gold, deep, gold]) x.withOpacity(o)]).createShader(box);
 
-    // نجمة 16 رأس مفرّغة بتدرّج ذهبي
-    final star = _star(16, 138, 119);
-    c.drawPath(star, Paint()..color = gold.withOpacity(dark ? .14 : .10));
-    c.drawPath(
-        star,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.8
-          ..strokeJoin = StrokeJoin.round
-          ..shader = sweep);
+    // حلقة داخلية رفيعة ملاصقة للصورة
+    c.drawCircle(Offset.zero, 110, line(1.6));
+    // شريط الشُرفات المتشابكة (طبقتين بينهم نص خطوة)
+    c.drawPath(_scallops(32, 118, 133, -dmath.pi / 2), line(1.3));
+    c.drawPath(_scallops(32, 118, 133, -dmath.pi / 2 + dmath.pi / 32), line(1.0, .55));
+    // خط وسطي ناعم تحت الشُرفات + حلقة خارجية مزدوجة
+    c.drawCircle(Offset.zero, 123, Paint()..style = PaintingStyle.stroke..strokeWidth = 5..color = gold.withOpacity(dark ? .10 : .08));
+    c.drawCircle(Offset.zero, 142, line(2.2));
+    c.drawCircle(Offset.zero, 146.5, line(.8, .8));
 
-    // نجمة تانية أصغر مقلوبة (بتدّي شكل زهرة هندسية)
-    c.save();
-    c.rotate(dmath.pi / 16);
-    c.drawPath(
-        _star(16, 124, 112),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1
-          ..color = gold.withOpacity(.55));
-    c.restore();
-
-    // حبّات لؤلؤ في الوديان بين رؤوس النجمة
+    // لؤلؤ صغير على الحلقة الخارجية
     final pearl = Paint()..color = gold;
-    final pearlHi = Paint()..color = light.withOpacity(.9);
-    for (var k = 0; k < 16; k++) {
-      final a = -dmath.pi / 2 + (k + .5) * 2 * dmath.pi / 16;
-      final o = Offset(dmath.cos(a), dmath.sin(a)) * 119;
-      c.drawCircle(o, 3.2, pearl);
-      c.drawCircle(o.translate(-.8, -.8), 1.1, pearlHi);
+    for (var k = 0; k < 48; k++) {
+      final a = k * 2 * dmath.pi / 48;
+      if (k % 12 == 0) continue; // أماكن الميداليات
+      c.drawCircle(Offset(dmath.cos(a), dmath.sin(a)) * 142, k % 2 == 0 ? 1.7 : 1.1, pearl);
     }
 
-    // سلسلة نقط دقيقة قبل الصورة
-    final dot = Paint()..color = gold.withOpacity(.85);
-    for (var k = 0; k < 64; k++) {
-      final a = k * 2 * dmath.pi / 64;
-      c.drawCircle(Offset(dmath.cos(a), dmath.sin(a)) * 108, k.isEven ? 1.5 : .9, dot);
+    // ميداليات خاتم سليمان في الجهات الأربع (الأعلى أكبرهم)
+    final fill = Paint()..color = gold;
+    final ring = Paint()..color = halo;
+    for (var k = 0; k < 4; k++) {
+      final a = -dmath.pi / 2 + k * dmath.pi / 2;
+      final o = Offset(dmath.cos(a), dmath.sin(a)) * 142;
+      final big = k == 0;
+      c.drawCircle(o, big ? 15 : 11.5, ring);
+      c.drawCircle(o, big ? 15 : 11.5, Paint()..style = PaintingStyle.stroke..strokeWidth = 1.2..color = gold);
+      _khatam(c, o, big ? 10.5 : 8, fill, ring);
+    }
+    // معيّنات صغيرة في الجهات المائلة
+    for (var k = 0; k < 4; k++) {
+      final a = -dmath.pi / 4 + k * dmath.pi / 2;
+      c.save();
+      c.translate(dmath.cos(a) * 142, dmath.sin(a) * 142);
+      c.rotate(dmath.pi / 4);
+      c.drawRect(Rect.fromCenter(center: Offset.zero, width: 7, height: 7), ring);
+      c.drawRect(Rect.fromCenter(center: Offset.zero, width: 7, height: 7), Paint()..style = PaintingStyle.stroke..strokeWidth = 1.2..color = gold);
+      c.restore();
     }
     c.restore();
   }
