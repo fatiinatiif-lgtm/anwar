@@ -820,7 +820,7 @@ class _TwinklePainter extends CustomPainter {
   bool shouldRepaint(covariant _TwinklePainter old) => old.color != color;
 }
 
-// إطار وقور حول صورة الشيخ: شُرفات متشابكة + ميداليات خاتم سليمان (بدون حركة)
+// إطار وقور حول صورة الشيخ: شُرفات متشابكة (بدون حركة)
 class _HeroFrame extends StatelessWidget {
   const _HeroFrame();
 
@@ -829,13 +829,13 @@ class _HeroFrame extends StatelessWidget {
     final g = sec(context);
     const d = 206.0; // قطر الصورة
     return SizedBox(
-      height: 310,
+      height: 280,
       child: Center(
         child: SizedBox(
-          width: 300,
-          height: 300,
+          width: 270,
+          height: 270,
           child: Stack(alignment: Alignment.center, children: [
-            CustomPaint(size: const Size(300, 300), painter: _CalmFramePainter(g, isDark(context))),
+            CustomPaint(size: const Size(270, 270), painter: _CalmFramePainter(g, isDark(context))),
             Container(
               width: d,
               height: d,
@@ -880,24 +880,11 @@ class _CalmFramePainter extends CustomPainter {
     return p..close();
   }
 
-  // خاتم سليمان: مربعين متقاطعين
-  void _khatam(Canvas c, Offset o, double r, Paint fill, Paint hole) {
-    for (final rot in [0.0, dmath.pi / 4]) {
-      c.save();
-      c.translate(o.dx, o.dy);
-      c.rotate(rot);
-      c.drawRect(Rect.fromCenter(center: Offset.zero, width: r * 1.45, height: r * 1.45), fill);
-      c.restore();
-    }
-    c.drawCircle(o, r * .34, hole);
-  }
-
   @override
   void paint(Canvas c, Size s) {
     final ctr = Offset(s.width / 2, s.height / 2);
     final light = Color.lerp(gold, Colors.white, .5)!;
     final deep = Color.lerp(gold, Colors.black, .3)!;
-    final halo = dark ? const Color(0xFF1E1E1E) : Colors.white;
 
     // هالة دافية خلف الإطار
     c.drawCircle(
@@ -924,40 +911,8 @@ class _CalmFramePainter extends CustomPainter {
     // شريط الشُرفات المتشابكة (طبقتين بينهم نص خطوة)
     c.drawPath(_scallops(32, 118, 133, -dmath.pi / 2), line(1.3));
     c.drawPath(_scallops(32, 118, 133, -dmath.pi / 2 + dmath.pi / 32), line(1.0, .55));
-    // خط وسطي ناعم تحت الشُرفات + حلقة خارجية مزدوجة
+    // لمسة ناعمة تحت الشُرفات
     c.drawCircle(Offset.zero, 123, Paint()..style = PaintingStyle.stroke..strokeWidth = 5..color = gold.withOpacity(dark ? .10 : .08));
-    c.drawCircle(Offset.zero, 142, line(2.2));
-    c.drawCircle(Offset.zero, 146.5, line(.8, .8));
-
-    // لؤلؤ صغير على الحلقة الخارجية
-    final pearl = Paint()..color = gold;
-    for (var k = 0; k < 48; k++) {
-      final a = k * 2 * dmath.pi / 48;
-      if (k % 12 == 0) continue; // أماكن الميداليات
-      c.drawCircle(Offset(dmath.cos(a), dmath.sin(a)) * 142, k % 2 == 0 ? 1.7 : 1.1, pearl);
-    }
-
-    // ميداليات خاتم سليمان في الجهات الأربع (الأعلى أكبرهم)
-    final fill = Paint()..color = gold;
-    final ring = Paint()..color = halo;
-    for (var k = 0; k < 4; k++) {
-      final a = -dmath.pi / 2 + k * dmath.pi / 2;
-      final o = Offset(dmath.cos(a), dmath.sin(a)) * 142;
-      final big = k == 0;
-      c.drawCircle(o, big ? 15 : 11.5, ring);
-      c.drawCircle(o, big ? 15 : 11.5, Paint()..style = PaintingStyle.stroke..strokeWidth = 1.2..color = gold);
-      _khatam(c, o, big ? 10.5 : 8, fill, ring);
-    }
-    // معيّنات صغيرة في الجهات المائلة
-    for (var k = 0; k < 4; k++) {
-      final a = -dmath.pi / 4 + k * dmath.pi / 2;
-      c.save();
-      c.translate(dmath.cos(a) * 142, dmath.sin(a) * 142);
-      c.rotate(dmath.pi / 4);
-      c.drawRect(Rect.fromCenter(center: Offset.zero, width: 7, height: 7), ring);
-      c.drawRect(Rect.fromCenter(center: Offset.zero, width: 7, height: 7), Paint()..style = PaintingStyle.stroke..strokeWidth = 1.2..color = gold);
-      c.restore();
-    }
     c.restore();
   }
 
