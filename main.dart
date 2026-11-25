@@ -9489,16 +9489,28 @@ const reminderMessages = [
 
 final FlutterLocalNotificationsPlugin _notifPlugin = FlutterLocalNotificationsPlugin();
 
-NotificationDetails reminderDetails(String msg) => NotificationDetails(
-      android: AndroidNotificationDetails(
-        'anwar_reminders',
-        'تذكيرات الأنوار',
-        channelDescription: 'تذكير بالصلاة على الحبيب ﷺ',
-        importance: Importance.high,
-        priority: Priority.high,
-        styleInformation: BigTextStyleInformation(msg),
-      ),
-    );
+// عدد الأصوات (الصيغ المسجّلة) الموجودة في android/app/src/main/res/raw باسم salawat_1 .. salawat_7
+const notifSoundCount = 7;
+
+// كل صوت له قناة إشعارات خاصة (أندرويد بيثبّت الصوت على مستوى القناة)
+NotificationDetails reminderDetails(String msg, {int? sound}) {
+  final i = (sound ?? dmath.Random().nextInt(notifSoundCount)) % notifSoundCount;
+  final loud = Repo.prefs.getBool('notif_loud') ?? true; // بقناة المنبّه: أعلى وما بيتأثرش بصوت الإشعارات
+  return NotificationDetails(
+    android: AndroidNotificationDetails(
+      'anwar_snd_${i + 1}_${loud ? 'a' : 'n'}',
+      'تذكيرات الأنوار (صيغة ${i + 1})',
+      channelDescription: 'تذكير بالصلاة على الحبيب ﷺ بصوت صيغة مسجّلة',
+      importance: Importance.max,
+      priority: Priority.max,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound('salawat_${i + 1}'),
+      audioAttributesUsage: loud ? AudioAttributesUsage.alarm : AudioAttributesUsage.notification,
+      enableVibration: true,
+      styleInformation: BigTextStyleInformation(msg),
+    ),
+  );
+}
 
 Future<void> askNotifPermission() async {
   try {
@@ -9545,16 +9557,31 @@ Future<void> scheduleReminders() async {
 Future<void> scheduleGeneric() async {
   final p = Repo.prefs;
   if (!(p.getBool('notif_on') ?? true)) return;
-  final hours = p.getInt('notif_hours') ?? 2;
+  final mins = notifMinutes();
   final quietOn = p.getBool('notif_quiet_on') ?? false;
   final qFrom = p.getInt('notif_qfrom') ?? 23;
   final qTo = p.getInt('notif_qto') ?? 7;
   final rnd = dmath.Random();
   var last = -1;
   var id = 1;
-  final slots = (7 * 24) ~/ hours;
+  // أندرويد بيحدّد عدد التنبيهات المجدولة (حوالي 500)، فبنجدول لحد 400 ونعيد الجدولة كل ما التطبيق يتفتح
+  final slots = dmath.min(400, (7 * 24 * 60) ~/ mins);
+  // الأصوات بتتوزّع كل 7 مع بعض بترتيب عشوائي، من غير ما صوت يتكرر ورا بعضه
+  final bag = <int>[];
+  var lastSnd = -1;
+  int nextSound() {
+    if (bag.isEmpty) {
+      bag.addAll(List.generate(notifSoundCount, (x) => x)..shuffle(rnd));
+      if (bag.first == lastSnd && bag.length > 1) {
+        final f = bag.removeAt(0);
+        bag.add(f);
+      }
+    }
+    return lastSnd = bag.removeAt(0);
+  }
+
   for (var k = 1; k <= slots; k++) {
-    final t = DateTime.now().add(Duration(hours: hours * k));
+    final t = DateTime.now().add(Duration(minutes: mins * k));
     if (quietOn && inQuietHours(t.hour, qFrom, qTo)) continue;
     var i = rnd.nextInt(reminderMessages.length);
     if (i == last) i = (i + 1) % reminderMessages.length;
@@ -9565,10 +9592,18 @@ Future<void> scheduleGeneric() async {
       title: 'مكتبة الأنوار المحمدية',
       body: msg,
       scheduledDate: tz.TZDateTime.from(t, tz.UTC),
-      notificationDetails: reminderDetails(msg),
+      notificationDetails: reminderDetails(msg, sound: nextSound()),
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
   }
+}
+
+// التكرار بالدقائق (لو المستخدم كان مختار بالساعات قبل كده بنحوّلها)
+int notifMinutes() {
+  final p = Repo.prefs;
+  final m = p.getInt('notif_mins');
+  if (m != null && m >= 5) return m;
+  return (p.getInt('notif_hours') ?? 2) * 60;
 }
 
 // عدد صلوات يوم معيّن في مستوى معيّن (لو اليوم متعلّم "تم" يتحسب الهدف كامل)
@@ -9816,15 +9851,16 @@ class NotifSettingsScreen extends StatefulWidget {
 }
 
 class _NotifSettingsScreenState extends State<NotifSettingsScreen> {
-  late bool on, quietOn, wirdOn, weekOn, gradeOn;
-  late int hours, qFrom, qTo, wH, wM, gH, gM;
+  late bool on, quietOn, wirdOn, weekOn, gradeOn, loud;
+  late int mins, qFrom, qTo, wH, wM, gH, gM;
 
   @override
   void initState() {
     super.initState();
     final p = Repo.prefs;
     on = p.getBool('notif_on') ?? true;
-    hours = p.getInt('notif_hours') ?? 2;
+    mins = notifMinutes();
+    loud = p.getBool('notif_loud') ?? true;
     quietOn = p.getBool('notif_quiet_on') ?? false;
     qFrom = p.getInt('notif_qfrom') ?? 23;
     qTo = p.getInt('notif_qto') ?? 7;
@@ -9841,7 +9877,8 @@ class _NotifSettingsScreenState extends State<NotifSettingsScreen> {
   Future<void> apply() async {
     final p = Repo.prefs;
     await p.setBool('notif_on', on);
-    await p.setInt('notif_hours', hours);
+    await p.setInt('notif_mins', mins);
+    await p.setBool('notif_loud', loud);
     await p.setBool('notif_quiet_on', quietOn);
     await p.setInt('notif_qfrom', qFrom);
     await p.setInt('notif_qto', qTo);
@@ -9893,17 +9930,28 @@ class _NotifSettingsScreenState extends State<NotifSettingsScreen> {
                 const Text('تكرار الإشعار', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 Wrap(spacing: 8, runSpacing: 4, children: [
-                  for (final h in const [1, 2, 3, 4, 6])
+                  for (final m in const [10, 20, 30, 60, 120, 180])
                     ChoiceChip(
-                      label: Text(h == 1 ? 'كل ساعة' : (h == 2 ? 'كل ساعتين' : 'كل $h ساعات')),
-                      selected: hours == h,
+                      label: Text(m < 60 ? 'كل $m دقيقة' : (m == 60 ? 'كل ساعة' : (m == 120 ? 'كل ساعتين' : 'كل ${m ~/ 60} ساعات'))),
+                      selected: mins == m,
                       onSelected: (_) {
-                        setState(() => hours = h);
+                        setState(() => mins = m);
                         apply();
                       },
                     ),
                 ]),
               ]),
+            ),
+          ),
+          Card(
+            child: SwitchListTile(
+              title: const Text('صوت عالي', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              subtitle: const Text('الإشعار يشتغل بصوت المنبّه، فيطلع عالي حتى لو صوت الإشعارات واطي'),
+              value: loud,
+              onChanged: (v) {
+                setState(() => loud = v);
+                apply();
+              },
             ),
           ),
           Card(
