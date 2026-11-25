@@ -39,6 +39,15 @@ jobs:
           flutter create --org com.anwar --project-name anwar_library --platforms android .
           flutter pub add url_launcher font_awesome_flutter scrollable_positioned_list flutter_local_notifications timezone
           python3 ../add_notifications.py android
+          # أصوات الإشعارات (الصيغ المسجّلة) -> res/raw
+          mkdir -p android/app/src/main/res/raw
+          cp ../salawat_*.mp3 android/app/src/main/res/raw/ || true
+          cp ../sounds/salawat_*.mp3 android/app/src/main/res/raw/ || true
+          ls -la android/app/src/main/res/raw
+          cat > android/app/src/main/res/raw/keep.xml <<'XML'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources xmlns:tools="http://schemas.android.com/tools" tools:keep="@raw/salawat_*" />
+          XML
           sed -i 's/android:label="[^"]*"/android:label="مكتبة الأنوار المحمدية"/' android/app/src/main/AndroidManifest.xml
           python3 - <<'PY'
           import re, glob
